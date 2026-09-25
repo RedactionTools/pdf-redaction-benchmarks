@@ -2301,6 +2301,9 @@ datasets = [
 generate = [
     { name = "pillow" },
 ]
+publish = [
+    { name = "truststore" },
+]
 report = [
     { name = "matplotlib", version = "3.10.9", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "matplotlib", version = "3.11.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
@@ -2319,7 +2322,7 @@ score = [
 [package.dev-dependencies]
 dev = [
     { name = "mypy" },
-    { name = "pdfredeval", extra = ["report", "score"] },
+    { name = "pdfredeval", extra = ["publish", "report", "score"] },
     { name = "pytest" },
     { name = "ruff" },
 ]
@@ -2335,13 +2338,14 @@ requires-dist = [
     { name = "pillow", marker = "extra == 'score'", specifier = ">=10.0" },
     { name = "pypdf", marker = "extra == 'score'", specifier = ">=4.0" },
     { name = "pypdfium2", marker = "extra == 'score'", specifier = ">=4.0" },
+    { name = "truststore", marker = "extra == 'publish'", specifier = ">=0.10" },
 ]
-provides-extras = ["score", "generate", "report", "datasets"]
+provides-extras = ["score", "generate", "report", "datasets", "publish"]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "mypy", specifier = ">=1.8" },
-    { name = "pdfredeval", extras = ["score", "report"] },
+    { name = "pdfredeval", extras = ["score", "report", "publish"] },
     { name = "pytest", specifier = ">=8.0" },
     { name = "ruff", specifier = ">=0.3" },
 ]
@@ -2919,6 +2923,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/0d/ea/b2a5bd54b28a324dae8211928b2d730b6547500342c7e6c6dea08bd0a485/tqdm-4.70.1.tar.gz", hash = "sha256:cefd0eca11b2a37a3aee776544d4f4ae913f02688135b5556b8788dfa474afc4", size = 171846, upload-time = "2026-09-11T07:25:16.601Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a7/03/921a3d3c75785aca9ebfbfcabfbc3a1be12e2ab5265deb026d55a5a3f83e/tqdm-4.70.1-py3-none-any.whl", hash = "sha256:c293e525e6fef9c20e8728fd4612df02a0aa31bb5fe91ecd93e123b1b7bffa73", size = 80199, upload-time = "2026-09-11T07:25:14.599Z" },
+]
+
+[[package]]
+name = "truststore"
+version = "0.10.4"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/53/a3/1585216310e344e8102c22482f6060c7a6ea0322b63e026372e6dcefcfd6/truststore-0.10.4.tar.gz", hash = "sha256:9d91bd436463ad5e4ee4aba766628dd6cd7010cf3e2461756b3303710eebc301", size = 26169, upload-time = "2025-08-12T18:49:02.73Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/19/97/56608b2249fe206a67cd573bc93cd9896e1efb9e98bce9c163bcdc704b88/truststore-0.10.4-py3-none-any.whl", hash = "sha256:adaeaecf1cbb5f4de3b1959b42d41f6fab57b2b1666adb59e89cb0b53361d981", size = 18660, upload-time = "2025-08-12T18:49:01.46Z" },
 ]
 
 [[package]]

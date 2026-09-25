@@ -1,7 +1,7 @@
 <div align="center">
 
 <a href="https://redaction-tools.com">
-  <img src="assets/redaction-tools-logo.png" alt="Redaction Tools" width="104">
+  <img src="https://raw.githubusercontent.com/RedactionTools/pdf-redaction-benchmarks/main/assets/redaction-tools-logo.png" alt="Redaction Tools" width="104">
 </a>
 
 # pdfredeval
@@ -21,11 +21,20 @@ source, no internals, only what a submitted page comes back looking like.
 Part of [Redaction Tools](https://redaction-tools.com) — results are published to the
 catalogue there.
 
-Design, metric definitions and dataset structure live in [`docs/`](docs/README.md).
+Design, metric definitions and dataset structure live in [`docs/`](https://github.com/RedactionTools/pdf-redaction-benchmarks/blob/main/docs/README.md).
+
+## Install
+
+```sh
+pip install pdfredeval                    # CLI + Python API: generation and adapters
+pip install "pdfredeval[score,report]"    # + scoring and HTML report charts
+```
+
+Extras: `score`, `report`, `generate` (rasterised conditions), `datasets`, `publish`.
 
 ## Setup
 
-Managed with [uv](https://docs.astral.sh/uv/).
+For development, the project is managed with [uv](https://docs.astral.sh/uv/).
 
 ```sh
 uv sync                    # create .venv, install the project editable + dev tools
@@ -117,18 +126,27 @@ rates are never averaged.
 | `submit` | start a run; on the manual path writes a task for the operator |
 | `collect` | collect a delivered run and write its manifest |
 | `score` | align, probe and score a run — or any PDF against its case — then report on it |
+| `login` / `logout` | sign this machine in to redaction-tools.com in the browser, or revoke its key |
 | `publish` | send scored runs to [redaction-tools.com](https://redaction-tools.com/benchmarks) for rescoring and review |
 | `publish-cases` | send cases and their ground truth to the site (staff keys only) |
 
 ### Publishing
 
-Create an API key on your [account page](https://redaction-tools.com/account), then:
+Sign in once per machine. Your browser opens on redaction-tools.com; sign in there and
+approve the code your terminal shows:
 
 ```sh
-export PDFREDEVAL_API_KEY=<prefix>.<secret>     # environment only, never a flag
+uv run pdfredeval login                         # --no-browser over SSH: prints the link
 uv run pdfredeval publish <run_dir> --dry-run   # check, list, send nothing
 uv run pdfredeval publish <run_dir> --notes "Pro plan, default settings"
+uv run pdfredeval logout                        # revokes this machine's key
 ```
+
+The key is saved in `~/.config/pdfredeval/credentials.json` (readable by you only;
+`$PDFREDEVAL_CONFIG_DIR` moves it). For CI, where there is no browser, create a key on
+your [account page](https://redaction-tools.com/account) and set
+`PDFREDEVAL_API_KEY=<prefix>.<secret>` instead: the environment is read only, never a
+flag, and it wins over a saved login.
 
 Runs are grouped into one submission per tool and dataset revision. Each run sends its
 `manifest.json`, `score/report.json`, the delivered PDF and its overlay, and nothing else:
@@ -172,7 +190,7 @@ in the manifest. Keep one PDF per run folder; with two, `collect` asks which.
 
 | Path | |
 |---|---|
-| `docs/` | the design brief — read [`docs/README.md`](docs/README.md) first |
+| `docs/` | the design brief — read [`docs/README.md`](https://github.com/RedactionTools/pdf-redaction-benchmarks/blob/main/docs/README.md) first |
 | `src/pdfredeval/generate/` | seeded case generation: values, layout, PDF writer, families |
 | `src/pdfredeval/tools/` | the `Tool` contract, vendor registry, manual and API transports |
 | `src/pdfredeval/align.py` | fiducials to ground-truth space, and when not to trust the mapping |

@@ -121,7 +121,10 @@ class PublishTests(unittest.TestCase):
         self.server = _serve(self.recorded)
         self.site = f"http://127.0.0.1:{self.server.server_address[1]}"
         self.tmp = Path(tempfile.mkdtemp())
-        self.env = {"PDFREDEVAL_API_KEY": "Ab12Cd34.secret", "PDFREDEVAL_SITE": self.site}
+        self.env = {"PDFREDEVAL_API_KEY": "Ab12Cd34.secret", "PDFREDEVAL_SITE": self.site,
+                    # Never the real ~/.config: a key saved by `pdfredeval login` on this
+                    # machine would otherwise answer the "no key" test.
+                    "PDFREDEVAL_CONFIG_DIR": tempfile.mkdtemp()}
 
     def tearDown(self) -> None:
         self.server.shutdown()
@@ -145,6 +148,15 @@ class PublishTests(unittest.TestCase):
             "tool_version": "4.2", "tier": "Pro", "notes": "first pass",
         })
         self.assertIn("1 run", out)
+
+    def test_identifies_itself_rather_than_as_python_urllib(self):
+        # Cloudflare in front of the site answers 403 to "Python-urllib/3.x".
+        from pdfredeval import __version__
+
+        run("publish", str(_scored_run(self.tmp)), env=self.env)
+
+        _, _, headers, _ = self.recorded.requests[0]
+        self.assertTrue(headers["user-agent"].startswith(f"pdfredeval/{__version__} "))
 
     def test_sends_the_run_files_and_nothing_else(self):
         run_dir = _scored_run(self.tmp)
@@ -173,7 +185,7 @@ class PublishTests(unittest.TestCase):
         self.assertEqual(self.recorded.requests, [])
 
     def test_no_api_key_is_a_clear_error(self):
-        env = {"PDFREDEVAL_SITE": self.site, "PDFREDEVAL_API_KEY": ""}
+        env = {**self.env, "PDFREDEVAL_API_KEY": ""}
 
         code, _, err = run("publish", str(_scored_run(self.tmp)), env=env)
 

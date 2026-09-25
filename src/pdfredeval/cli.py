@@ -597,7 +597,7 @@ def _rate(rate: dict[str, Any]) -> str:
 
 
 def cmd_publish(args: argparse.Namespace) -> int:
-    from .publish import SUBMISSIONS_PAGE, client_from_env, load_run, publish_runs
+    from .publish import SUBMISSIONS_PAGE, client_for, load_run, publish_runs
 
     ws = _workspace(args)
     targets = _expand_targets(args.target or [ws.runs_root])
@@ -615,7 +615,7 @@ def cmd_publish(args: argparse.Namespace) -> int:
         print(f"dry run: {len(runs)} run(s) would be published; nothing was sent")
         return 0
 
-    client = client_from_env(args.site)
+    client = client_for(args.site)
     for submission_id, count in publish_runs(client, runs, suite=args.suite, notes=args.notes):
         print(f"submission {submission_id}: {count} run{'s' if count != 1 else ''} sent "
               "for scoring and review")
@@ -624,7 +624,7 @@ def cmd_publish(args: argparse.Namespace) -> int:
 
 
 def cmd_publish_cases(args: argparse.Namespace) -> int:
-    from .publish import case_dirs, client_from_env
+    from .publish import case_dirs, client_for
 
     ws = _workspace(args)
     root = args.cases_dir or ws.cases_root
@@ -632,12 +632,34 @@ def cmd_publish_cases(args: argparse.Namespace) -> int:
     if not cases:
         raise BenchmarkError(f"no cases under {root}")
     holdout = set(args.holdout or ())
-    client = client_from_env(args.site)
+    client = client_for(args.site)
     for case_dir in cases:
         visibility = "holdout" if case_dir.name in holdout else "public"
         client.publish_case(args.suite, case_dir, visibility)
         print(f"{case_dir.name}  {visibility}")
     print(f"published {len(cases)} cases")
+    return 0
+
+
+def cmd_login(args: argparse.Namespace) -> int:
+    from .auth import login
+    from .publish import site_url
+
+    user = login(site_url(args.site), open_browser=not args.no_browser)
+    who = user.get("name") or user.get("email") or "your account"
+    print(f"Logged in as {who}. `pdfredeval publish` will use this machine's key.")
+    return 0
+
+
+def cmd_logout(args: argparse.Namespace) -> int:
+    from .auth import logout
+    from .publish import site_url
+
+    site = site_url(args.site)
+    if logout(site):
+        print(f"Logged out of {site}; this machine's key is revoked.")
+    else:
+        print(f"Not logged in to {site}.")
     return 0
 
 
@@ -756,8 +778,20 @@ def build_parser() -> argparse.ArgumentParser:
     group.add_argument("--suite", default="pdf", help="benchmark suite (default: pdf)")
 
     p = sub.add_parser(
+        "login", parents=[site],
+        help="sign in to redaction-tools.com in the browser and save a key for publish",
+    )
+    p.add_argument("--no-browser", action="store_true",
+                   help="print the sign-in link instead of opening it (e.g. over SSH)")
+    p.set_defaults(func=cmd_login)
+
+    p = sub.add_parser("logout", parents=[site],
+                       help="revoke and forget this machine's key")
+    p.set_defaults(func=cmd_logout)
+
+    p = sub.add_parser(
         "publish", parents=[tree, site],
-        help="publish scored runs to redaction-tools.com (API key in $PDFREDEVAL_API_KEY)",
+        help="publish scored runs to redaction-tools.com (after `pdfredeval login`)",
     )
     p.add_argument("target", type=Path, nargs="*",
                    help="run directories or a parent holding several "

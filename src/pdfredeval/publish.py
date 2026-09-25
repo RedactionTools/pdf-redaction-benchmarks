@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import os
+import ssl
 import urllib.error
 import urllib.request
 import uuid
@@ -28,6 +29,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from . import __version__
 from .errors import BenchmarkError
 from .manifest import RunManifest
 
@@ -36,6 +38,9 @@ SUBMISSIONS_PAGE = "https://redaction-tools.com/benchmarks/submissions"
 API_KEY_ENV = "PDFREDEVAL_API_KEY"
 SITE_ENV = "PDFREDEVAL_SITE"
 TIMEOUT_SECONDS = 120
+# Named, with a way back to us. Also necessary: Cloudflare in front of the site answers
+# urllib's default "Python-urllib/3.x" with a 403, as it does any anonymous script.
+USER_AGENT = f"pdfredeval/{__version__} (+https://github.com/RedactionTools/pdf-redaction-benchmarks)"
 
 
 class PublishError(BenchmarkError):
@@ -137,24 +142,76 @@ class SiteClient:
         fields: dict[str, str] | None = None,
         files: dict[str, tuple[str, bytes]] | None = None,
     ) -> dict[str, Any]:
-        headers = {"X-API-Key": self.api_key, "Accept": "application/json"}
-        if files is not None:
-            data, content_type = _multipart(fields or {}, files)
-            headers["Content-Type"] = content_type
-        else:
-            data = json.dumps(json_body or {}).encode()
-            headers["Content-Type"] = "application/json"
-        request = urllib.request.Request(  # noqa: S310 - the site URL is the user's own setting
-            self.base + path, data=data, headers=headers, method="POST"
-        )
-        try:
-            with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:  # noqa: S310
-                body: dict[str, Any] = json.loads(response.read() or b"{}")
-                return body
-        except urllib.error.HTTPError as exc:
-            raise PublishError(_refusal(exc)) from exc
-        except urllib.error.URLError as exc:
-            raise PublishError(f"could not reach {self.base}: {exc.reason}") from exc
+        return post(self.base + path, api_key=self.api_key, json_body=json_body,
+                    fields=fields, files=files)
+
+
+def post(
+    url: str,
+    *,
+    api_key: str | None = None,
+    json_body: dict[str, Any] | None = None,
+    fields: dict[str, str] | None = None,
+    files: dict[str, tuple[str, bytes]] | None = None,
+) -> dict[str, Any]:
+    """POST to the site and return its JSON (or `{}` for an empty reply)."""
+    headers = {"Accept": "application/json", "User-Agent": USER_AGENT}
+    if api_key:
+        headers["X-API-Key"] = api_key
+    if files is not None:
+        data, content_type = _multipart(fields or {}, files)
+        headers["Content-Type"] = content_type
+    else:
+        data = json.dumps(json_body or {}).encode()
+        headers["Content-Type"] = "application/json"
+    request = urllib.request.Request(  # noqa: S310 - the site URL is the user's own setting
+        url, data=data, headers=headers, method="POST"
+    )
+    context = ssl_context() if url.startswith("https:") else None
+    try:
+        with urllib.request.urlopen(  # noqa: S310
+            request, timeout=TIMEOUT_SECONDS, context=context
+        ) as response:
+            body: dict[str, Any] = json.loads(response.read() or b"{}")
+            return body
+    except urllib.error.HTTPError as exc:
+        raise PublishError(_refusal(exc)) from exc
+    except urllib.error.URLError as exc:
+        raise PublishError(f"could not reach {url}: {exc.reason}") from exc
+
+
+def ssl_context() -> ssl.SSLContext:
+    """The certificates to verify the site with.
+
+    Python's own store first. When it holds nothing - the python.org macOS installers
+    trust no CA until "Install Certificates.command" is run, so every HTTPS call fails
+    with CERTIFICATE_VERIFY_FAILED - the operating system's store through `truststore`
+    (the `publish` extra, as pip does it), then `certifi` if it happens to be installed.
+    Verification is never switched off: a publish that trusted anything would hand the
+    API key to whoever answered.
+    """
+    context = ssl.create_default_context()
+    if context.cert_store_stats().get("x509_ca"):
+        return context
+    try:
+        import truststore
+    except ImportError:
+        pass
+    else:
+        system: ssl.SSLContext = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        return system
+    try:
+        import certifi
+    except ImportError:
+        pass
+    else:
+        return ssl.create_default_context(cafile=certifi.where())
+    raise BenchmarkError(
+        "this Python trusts no certificate authorities, so it cannot verify the site. "
+        "Run `uv sync` in this repo (it installs `truststore`, which uses your system's "
+        "certificates), or `pip install truststore`. With a python.org install on macOS, "
+        "running \"/Applications/Python 3.x/Install Certificates.command\" also fixes it."
+    )
 
 
 def _refusal(exc: urllib.error.HTTPError) -> str:
@@ -166,7 +223,8 @@ def _refusal(exc: urllib.error.HTTPError) -> str:
     if isinstance(detail, list):
         detail = "; ".join(str(item.get("msg", item)) for item in detail)
     if exc.code == 401:
-        return f"the site did not accept the API key in ${API_KEY_ENV} (401)"
+        return ("the site did not accept the API key (401). Run `pdfredeval login` again, "
+                f"or check ${API_KEY_ENV}")
     return f"the site refused ({exc.code}): {detail or exc.reason}"
 
 
@@ -190,14 +248,25 @@ def _multipart(
     return b"".join(chunks), f"multipart/form-data; boundary={boundary}"
 
 
-def client_from_env(site: str | None) -> SiteClient:
-    api_key = os.environ.get(API_KEY_ENV, "").strip()
+def site_url(site: str | None) -> str:
+    """The site to talk to: `--site`, then `$PDFREDEVAL_SITE`, then redaction-tools.com."""
+    return (site or os.environ.get(SITE_ENV) or DEFAULT_SITE).rstrip("/")
+
+
+def client_for(site: str | None) -> SiteClient:
+    """A client with this machine's key: `$PDFREDEVAL_API_KEY` first, else the one
+    `pdfredeval login` saved for this site."""
+    from .auth import stored_key
+
+    url = site_url(site)
+    api_key = os.environ.get(API_KEY_ENV, "").strip() or stored_key(url)
     if not api_key:
         raise BenchmarkError(
-            f"set ${API_KEY_ENV} to an API key from https://redaction-tools.com/account. "
-            "It is read from the environment only, so it never lands in shell history."
+            f"not signed in to {url}. Run `pdfredeval login`, or set ${API_KEY_ENV} to an "
+            "API key from https://redaction-tools.com/account (read from the environment "
+            "only, so it never lands in shell history)."
         )
-    return SiteClient(site or os.environ.get(SITE_ENV) or DEFAULT_SITE, api_key)
+    return SiteClient(url, api_key)
 
 
 def publish_runs(

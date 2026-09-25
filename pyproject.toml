@@ -9,7 +9,30 @@ description = "Evaluation framework for third-party PDF redaction tools"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
+authors = [{ name = "Mykola Melnyk" }]
+keywords = ["pdf", "redaction", "benchmark", "evaluation", "privacy"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: GNU Affero General Public License v3",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+    "Typing :: Typed",
+]
 dependencies = []
+
+[project.urls]
+Homepage = "https://redaction-tools.com"
+Source = "https://github.com/RedactionTools/pdf-redaction-benchmarks"
+Documentation = "https://github.com/RedactionTools/pdf-redaction-benchmarks/tree/main/docs"
+Issues = "https://github.com/RedactionTools/pdf-redaction-benchmarks/issues"
 
 [project.optional-dependencies]
 # Runtime extras a consumer opts into. The scoring pipeline needs a rasteriser and a
@@ -22,6 +45,10 @@ generate = ["pillow>=10.0"]
 # so a run that only wants numbers never pays for a plotting stack.
 report = ["matplotlib>=3.7"]
 datasets = ["huggingface-hub>=0.20", "datasets>=2.16"]
+# `publish` and `login` speak HTTPS with the stdlib alone, but a Python whose own CA
+# store is empty (python.org's macOS installers, until "Install Certificates" is run)
+# cannot verify anything; truststore verifies against the operating system's store.
+publish = ["truststore>=0.10"]
 
 [project.scripts]
 pdfredeval = "pdfredeval.cli:main"
@@ -37,18 +64,23 @@ pdfredeval = "pdfredeval.cli:main"
 # suite. Scoring is half the pipeline; a contributor who silently skips its tests is
 # worse off than one who waits for a rasteriser to download.
 [dependency-groups]
-dev = ["pdfredeval[score,report]", "pytest>=8.0", "mypy>=1.8", "ruff>=0.3"]
+dev = ["pdfredeval[score,report,publish]", "pytest>=8.0", "mypy>=1.8", "ruff>=0.3"]
 
 [tool.uv]
 # The project itself is always installed editable, so `uv run` sees `src/` edits without
 # a resync.
 package = true
 
+# The wheel carries the package alone; fonts and the logo mark ride along as package data.
 [tool.hatch.build.targets.wheel]
 packages = ["src/pdfredeval"]
+exclude = ["__pycache__", "*.pyc"]
 
-[tool.hatch.build.targets.wheel.force-include]
-"src/pdfredeval/generate/fonts" = "pdfredeval/generate/fonts"
+# An allowlist, not the ignore files: docs/, benchmarks/, tests/ and anything excluded only
+# locally (.git/info/exclude, which hatchling never reads) stay out of the sdist.
+[tool.hatch.build.targets.sdist]
+only-include = ["src/pdfredeval", "README.md", "LICENSE", "pyproject.toml"]
+exclude = ["__pycache__", "*.pyc"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -70,5 +102,5 @@ files = ["src"]
 # typed wrapper - `engines.render` and `score.rows.to_frame` - so the untyped surface
 # stops at those functions rather than spreading through the scorer.
 [[tool.mypy.overrides]]
-module = ["pypdfium2.*", "pandas.*", "matplotlib.*"]
+module = ["pypdfium2.*", "pandas.*", "matplotlib.*", "certifi"]
 ignore_missing_imports = true
