@@ -1,0 +1,74 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pdfredeval"
+version = "0.1.1"
+description = "Evaluation framework for third-party PDF redaction tools"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+dependencies = []
+
+[project.optional-dependencies]
+# Runtime extras a consumer opts into. The scoring pipeline needs a rasteriser and a
+# PDF parser; generation and the adapter layer deliberately need neither.
+score = ["pandas>=2.0", "pypdf>=4.0", "pillow>=10.0", "numpy>=1.24", "pypdfium2>=4.0"]
+# Rasterised probe conditions (print-*, hand-*) need a glyph rasteriser. Vector
+# generation and the adapter layer still need nothing.
+generate = ["pillow>=10.0"]
+# Charts for the HTML report. Tables and the terminal summary need nothing extra,
+# so a run that only wants numbers never pays for a plotting stack.
+report = ["matplotlib>=3.7"]
+datasets = ["huggingface-hub>=0.20", "datasets>=2.16"]
+
+[project.scripts]
+pdfredeval = "pdfredeval.cli:main"
+
+# Out-of-tree adapters advertise themselves here; registry.load_entry_points() finds them.
+# [project.entry-points."pdfredeval.tools"]
+# acme-api = "acme_redaction_adapter:AcmeApi"
+
+# PEP 735. Development tooling is not an extra: nobody installing this package to run a
+# benchmark wants the linter. uv syncs this group by default.
+#
+# The `score` extra is pulled in here too, so a plain `uv sync` can run the whole test
+# suite. Scoring is half the pipeline; a contributor who silently skips its tests is
+# worse off than one who waits for a rasteriser to download.
+[dependency-groups]
+dev = ["pdfredeval[score,report]", "pytest>=8.0", "mypy>=1.8", "ruff>=0.3"]
+
+[tool.uv]
+# The project itself is always installed editable, so `uv run` sees `src/` edits without
+# a resync.
+package = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pdfredeval"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/pdfredeval/generate/fonts" = "pdfredeval/generate/fonts"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 96
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+files = ["src"]
+
+# Neither pypdfium2 nor pandas ships usable stubs here. Both are reached through one
+# typed wrapper - `engines.render` and `score.rows.to_frame` - so the untyped surface
+# stops at those functions rather than spreading through the scorer.
+[[tool.mypy.overrides]]
+module = ["pypdfium2.*", "pandas.*", "matplotlib.*"]
+ignore_missing_imports = true

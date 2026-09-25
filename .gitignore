@@ -216,3 +216,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Generated benchmark data: cases are reproducible from their seed, and run outputs
+# belong to whoever collected them.
+cases/
+runs/
