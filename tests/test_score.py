@@ -13,6 +13,7 @@ import unittest
 from pathlib import Path
 
 import fakes
+from surfaces import leak_surface_case
 
 from pdfredeval.capabilities import Capabilities
 from pdfredeval.generate import generate
@@ -38,7 +39,7 @@ def score_fake(case: Case, output: bytes, **kwargs: object):
 class ScoreBase(unittest.TestCase):
     case: Case
 
-    FAMILY = "pii-packed"
+    FAMILY = "pii-detection"
     SEED = 7
 
     @classmethod
@@ -139,8 +140,11 @@ class KnownToolTests(ScoreBase):
 
 
 class LayerAttributionTests(ScoreBase):
-    FAMILY = "redaction-layers"
-    SEED = 11
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls._tmp = tempfile.TemporaryDirectory()
+        cls.dir = Path(cls._tmp.name)
+        cls.case = leak_surface_case(cls.dir, seed=11)
 
     def test_every_planted_surface_is_named_by_the_layer_that_caught_it(self):
         result = score_fake(self.case, fakes.do_nothing(self.case))
@@ -220,7 +224,7 @@ class AmbiguousTests(ScoreBase):
         result = score_fake(self.case, fakes.do_nothing(self.case))
         report = result.report()
         self.assertGreater(report["ambiguous"]["n"], 0,
-                           "pii-packed plants an employer name, which is arguable")
+                           "pii-detection plants an employer name, which is arguable")
         counts = report["summary"]["counts"]
         self.assertEqual(
             sum(counts.values()), report["summary"]["probes"],

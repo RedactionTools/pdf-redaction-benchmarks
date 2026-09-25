@@ -58,7 +58,7 @@ class ReportBase(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls._tmp = tempfile.TemporaryDirectory()
         cls.dir = Path(cls._tmp.name)
-        cls.case = generate("pii-packed", cls.dir / "cases", seed=13).case
+        cls.case = generate("pii-detection", cls.dir / "cases", seed=13).case
         cls.runs = cls.dir / "runs"
         cls.leaky = _write_run(cls.runs, cls.case, "leaky-1", "acme:web",
                                fakes.do_nothing(cls.case), tier="free")

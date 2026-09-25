@@ -11,6 +11,8 @@ import unittest
 import unittest.mock
 from pathlib import Path
 
+from surfaces import leak_surface_case
+
 from pdfredeval.generate import (
     CONDITION_CELLS,
     FAMILIES,
@@ -73,7 +75,7 @@ class AllFamiliesTests(TempCase):
                 self.assertTrue(g.case.pdf_bytes.rstrip().endswith(b"%%EOF"))
 
     def test_ground_truth_roundtrips(self):
-        g = generate("pii-packed", self.out, seed=5, dataset_revision="rev-y")
+        g = generate("pii-detection", self.out, seed=5, dataset_revision="rev-y")
         reloaded = Case.from_dir(self.out / g.case.case_id, dataset_revision="rev-y")
         self.assertEqual(len(reloaded.probes), len(g.case.probes))
         self.assertEqual(reloaded.probes[0], g.case.probes[0])
@@ -81,27 +83,27 @@ class AllFamiliesTests(TempCase):
 
     def test_seed_and_stamp_reproduce_byte_identical_pdf(self):
         kw = {"seed": 77, "generated_at": STAMP}
-        a = generate("pii-packed", self.out / "a", **kw).case
-        b = generate("pii-packed", self.out / "b", **kw).case
+        a = generate("pii-detection", self.out / "a", **kw).case
+        b = generate("pii-detection", self.out / "b", **kw).case
         self.assertEqual(a.pdf_bytes, b.pdf_bytes)
         self.assertEqual(a.sha256, b.sha256)
 
     def test_the_stamp_is_what_makes_it_differ(self):
         """Generation time is on the page, so it has to be pinned to reproduce bytes."""
-        a = generate("pii-packed", self.out / "a", seed=77, generated_at=STAMP).case
-        b = generate("pii-packed", self.out / "b", seed=77,
+        a = generate("pii-detection", self.out / "a", seed=77, generated_at=STAMP).case
+        b = generate("pii-detection", self.out / "b", seed=77,
                      generated_at="2020-01-01T00:00:00Z").case
         self.assertNotEqual(a.sha256, b.sha256)
 
     def test_source_date_epoch_pins_the_stamp(self):
         with unittest.mock.patch.dict(os.environ, {"SOURCE_DATE_EPOCH": "1700000000"}):
-            a = generate("pii-packed", self.out / "a", seed=78).case
-            b = generate("pii-packed", self.out / "b", seed=78).case
+            a = generate("pii-detection", self.out / "a", seed=78).case
+            b = generate("pii-detection", self.out / "b", seed=78).case
         self.assertEqual(a.sha256, b.sha256)
 
     def test_different_seeds_differ(self):
-        a = generate("pii-packed", self.out / "a", seed=1).case
-        b = generate("pii-packed", self.out / "b", seed=2).case
+        a = generate("pii-detection", self.out / "a", seed=1).case
+        b = generate("pii-detection", self.out / "b", seed=2).case
         self.assertNotEqual(a.sha256, b.sha256)
 
     def test_no_lexical_conflicts_in_any_family(self):
@@ -112,7 +114,7 @@ class AllFamiliesTests(TempCase):
                 self.assertEqual(case.lexical_conflicts(), {})
 
     def test_fiducials_recorded_and_rotationally_unambiguous(self):
-        g = generate("pii-packed", self.out, seed=9)
+        g = generate("pii-detection", self.out, seed=9)
         truth = json.loads((self.out / g.case.case_id / "ground_truth.json").read_text())
         roles = {f["role"]: f for f in truth["fiducials"]}
         self.assertEqual(set(roles), {"tl", "tr", "bl", "br"})
@@ -121,12 +123,12 @@ class AllFamiliesTests(TempCase):
                                                   "flip is undetectable")
 
     def test_probe_ids_unique(self):
-        case = generate("pii-packed", self.out, seed=4).case
+        case = generate("pii-detection", self.out, seed=4).case
         ids = [p.id for p in case.probes]
         self.assertEqual(len(ids), len(set(ids)))
 
     def test_distractors_and_targets_both_present(self):
-        case = generate("pii-packed", self.out, seed=6).case
+        case = generate("pii-detection", self.out, seed=6).case
         self.assertGreater(len(case.targets), 0)
         self.assertGreater(len(case.distractors), 0, "a page of pure PII rewards "
                                                      "redact-everything")
@@ -184,9 +186,9 @@ class ChannelTests(TempCase):
     def test_metadata_probe_is_not_on_the_page(self):
         """If it survives, the tool never opened the metadata channel - so it must not
         be reachable any other way."""
-        g = generate("structural-traps", self.out, seed=21)
-        pdf = g.case.pdf_bytes
-        meta = [p for p in g.case.probes if p.kind is ProbeKind.METADATA_KEY]
+        case = leak_surface_case(self.out, seed=21)
+        pdf = case.pdf_bytes
+        meta = [p for p in case.probes if p.kind is ProbeKind.METADATA_KEY]
         self.assertGreater(len(meta), 0)
         page = content_streams(pdf)
         for probe in meta:
@@ -196,34 +198,33 @@ class ChannelTests(TempCase):
                 self.assertNotIn(probe.value.encode("latin-1"), page)
 
     def test_invisible_probe_uses_render_mode_3(self):
-        g = generate("structural-traps", self.out, seed=22)
-        self.assertIn(b"3 Tr", g.case.pdf_bytes)
-        invisible = [p for p in g.case.probes if p.trap == "invisible_text"]
-        # Replicated: one probe per trap cannot separate a failure from a fluke.
-        self.assertGreaterEqual(len(invisible), 3)
+        case = leak_surface_case(self.out, seed=22)
+        self.assertIn(b"3 Tr", case.pdf_bytes)
+        invisible = [p for p in case.probes if p.trap == "invisible_text"]
+        self.assertTrue(invisible)
         for probe in invisible:
             with self.subTest(probe=probe.id):
-                self.assertIn(probe.value.encode("latin-1"), g.case.pdf_bytes)
+                self.assertIn(probe.value.encode("latin-1"), case.pdf_bytes)
 
     def test_annotation_probe_lives_outside_the_content_stream(self):
-        g = generate("structural-traps", self.out, seed=23)
-        pdf = g.case.pdf_bytes
+        case = leak_surface_case(self.out, seed=23)
+        pdf = case.pdf_bytes
         self.assertIn(b"/FreeText", pdf)
-        annot = [p for p in g.case.probes if p.trap == "annotation"][0]
+        annot = [p for p in case.probes if p.trap == "annotation"][0]
         self.assertIn(annot.value.encode("latin-1"), pdf)
 
     def test_hidden_layer_is_off_by_default(self):
-        g = generate("structural-traps", self.out, seed=24)
-        pdf = g.case.pdf_bytes
+        case = leak_surface_case(self.out, seed=24)
+        pdf = case.pdf_bytes
         self.assertIn(b"/OCProperties", pdf)
         self.assertIn(b"/OFF", pdf)
         self.assertIn(b"/OC /MC0 BDC", pdf)
 
     def test_prior_revision_holds_the_original(self):
         """The nastiest real case: an earlier revision still carries the secret."""
-        g = generate("structural-traps", self.out, seed=25)
-        pdf = g.case.pdf_bytes
-        probe = [p for p in g.case.probes if p.trap == "prior_revision"][0]
+        case = leak_surface_case(self.out, seed=25)
+        pdf = case.pdf_bytes
+        probe = [p for p in case.probes if p.trap == "prior_revision"][0]
         self.assertEqual(pdf.count(b"%%EOF"), 2, "expected an incremental update")
         self.assertIn(probe.value.encode("latin-1"), pdf)
         self.assertIn(b"/Prev", pdf)
@@ -514,7 +515,7 @@ class RasterConditionTests(TempCase):
 class ProvenanceStampTests(TempCase):
     """The banner travels with the page; the seed must not."""
 
-    def _case(self, family="pii-packed", seed=90):
+    def _case(self, family="pii-detection", seed=90):
         return generate(family, self.out, seed=seed, generated_at=STAMP).case
 
     def test_banner_carries_site_repo_version_and_time(self):
@@ -579,7 +580,7 @@ class ProvenanceStampTests(TempCase):
 
     def test_seed_is_never_written_into_the_artefact(self):
         """The page goes to the vendor; the seed regenerates a holdout case."""
-        case = generate("pii-packed", self.out, seed=987654,
+        case = generate("pii-detection", self.out, seed=987654,
                         case_id="opaque-case", generated_at=STAMP).case
         self.assertNotIn(b"987654", case.pdf_bytes)
         self.assertNotIn(b"seed", case.pdf_bytes.lower())
@@ -592,11 +593,11 @@ class ProvenanceStampTests(TempCase):
         self.assertIn(b"<dc:source>https://github.com/RedactionTools", pdf)
 
     def test_ground_truth_records_the_stamp_so_it_can_be_reproduced(self):
-        g = generate("pii-packed", self.out, seed=91, generated_at=STAMP)
+        g = generate("pii-detection", self.out, seed=91, generated_at=STAMP)
         truth = json.loads(
             (self.out / g.case.case_id / "ground_truth.json").read_text())
         self.assertEqual(truth["generated_at"], STAMP)
-        again = generate("pii-packed", self.out / "again", seed=truth["seed"],
+        again = generate("pii-detection", self.out / "again", seed=truth["seed"],
                          generated_at=truth["generated_at"]).case
         self.assertEqual(again.sha256, g.case.sha256)
 
@@ -718,7 +719,7 @@ class VersionTests(unittest.TestCase):
         import tempfile
 
         with tempfile.TemporaryDirectory() as tmp:
-            g = generate("pii-packed", tmp, seed=1, generated_at=STAMP)
+            g = generate("pii-detection", tmp, seed=1, generated_at=STAMP)
             truth = json.loads(
                 (Path(tmp) / g.case.case_id / "ground_truth.json").read_text())
         self.assertEqual(truth["generator_version"], VERSION)
@@ -762,7 +763,7 @@ class ValidationTests(TempCase):
         for family, build in FAMILIES.items():
             for seed in range(1, 26):
                 with self.subTest(family=family, seed=seed):
-                    b, skipped = build(f"{family}-{seed:06d}", seed)
+                    b, skipped = build(f"{family}-{seed}", seed)
                     self.assertEqual(b.check_spatial_isolation(), [])
                     self.assertEqual([s for s in skipped
                                       if s.reason == "no room left on the page"], [])

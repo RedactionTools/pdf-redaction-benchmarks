@@ -160,20 +160,20 @@ _Only measurable when the tool reports what it found. When it does not (`inferre
 
 | Run | Field | Value |
 |:---|:---|:---|
-| 20260925T081446-pdf-redaction-web-extraction-conditions-000001-a1-21dbff | tool | pdf-redaction:web |
-| 20260925T081446-pdf-redaction-web-extraction-conditions-000001-a1-21dbff | observed_at | 2026-09-25T08:14:47+00:00 |
-| 20260925T081446-pdf-redaction-web-extraction-conditions-000001-a1-21dbff | attempt | 1 |
-| 20260925T081446-pdf-redaction-web-extraction-conditions-000001-a1-21dbff | transport | manual |
-| 20260925T081446-pdf-redaction-web-extraction-conditions-000001-a1-21dbff | case | extraction-conditions-000001 |
-| 20260925T081446-pdf-redaction-web-extraction-conditions-000001-a1-21dbff | dataset revision | v0.1.1 |
-| 20260925T081446-pdf-redaction-web-extraction-conditions-000001-a1-21dbff | output sha256 | 4c271feece6f5443 |
-| 20260925T081446-pdf-redaction-web-extraction-conditions-000001-a1-21dbff | engine ocr | tesseract |
-| 20260925T081446-pdf-redaction-web-extraction-conditions-000001-a1-21dbff | engine pdfium | 153.0.7999.0 |
-| 20260925T081446-pdf-redaction-web-extraction-conditions-000001-a1-21dbff | engine pypdf | 6.19.0 |
-| 20260925T081446-pdf-redaction-web-extraction-conditions-000001-a1-21dbff | engine pypdfium2 | 5.13.0 |
-| 20260925T081446-pdf-redaction-web-extraction-conditions-000001-a1-21dbff | engine renderer | pypdfium2 |
-| 20260925T081446-pdf-redaction-web-extraction-conditions-000001-a1-21dbff | engine tesseract | tesseract 5.5.2 |
-| 20260925T081446-pdf-redaction-web-extraction-conditions-000001-a1-21dbff | alignment | fiducial · residual 0.348px |
+| 20260925T081446-pdf-redaction-web-extraction-conditions-1-a1-21dbff | tool | pdf-redaction:web |
+| 20260925T081446-pdf-redaction-web-extraction-conditions-1-a1-21dbff | observed_at | 2026-09-25T08:14:47+00:00 |
+| 20260925T081446-pdf-redaction-web-extraction-conditions-1-a1-21dbff | attempt | 1 |
+| 20260925T081446-pdf-redaction-web-extraction-conditions-1-a1-21dbff | transport | manual |
+| 20260925T081446-pdf-redaction-web-extraction-conditions-1-a1-21dbff | case | extraction-conditions-1 |
+| 20260925T081446-pdf-redaction-web-extraction-conditions-1-a1-21dbff | dataset revision | v0.1.1 |
+| 20260925T081446-pdf-redaction-web-extraction-conditions-1-a1-21dbff | output sha256 | 4c271feece6f5443 |
+| 20260925T081446-pdf-redaction-web-extraction-conditions-1-a1-21dbff | engine ocr | tesseract |
+| 20260925T081446-pdf-redaction-web-extraction-conditions-1-a1-21dbff | engine pdfium | 153.0.7999.0 |
+| 20260925T081446-pdf-redaction-web-extraction-conditions-1-a1-21dbff | engine pypdf | 6.19.0 |
+| 20260925T081446-pdf-redaction-web-extraction-conditions-1-a1-21dbff | engine pypdfium2 | 5.13.0 |
+| 20260925T081446-pdf-redaction-web-extraction-conditions-1-a1-21dbff | engine renderer | pypdfium2 |
+| 20260925T081446-pdf-redaction-web-extraction-conditions-1-a1-21dbff | engine tesseract | tesseract 5.5.2 |
+| 20260925T081446-pdf-redaction-web-extraction-conditions-1-a1-21dbff | alignment | fiducial · residual 0.348px |
 | thresholds | beta | 2.0 |
 | thresholds | delta_px | 24 |
 | thresholds | disclosure_length | {'ACCOUNT': 4, 'CARD': 4, 'EMAIL': 4, 'IBAN': 4, 'NATIONAL_ID': 4, 'PASSPORT': 4, 'PHONE': 4, 'PLATE': 4, 'POSTCODE': 4} |

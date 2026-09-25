@@ -14,7 +14,7 @@ A version folder is keyed by the package version because that is what stamps the
 generated pages: a case made by 0.1.1 and one made by 0.2.0 are different cases even
 from the same seed, and a score is only comparable against the cases it was run on.
 
-File names carry their own identity - `pii-packed-000001.pdf`, not `case.pdf` - because
+File names carry their own identity - `pii-detection-1.pdf`, not `case.pdf` - because
 a PDF gets uploaded to a vendor, attached to a ticket and downloaded again, and outside
 its folder `case.pdf` says nothing. A run's output keeps whatever name the tool gave it:
 the run folder already says which tool, and renaming every download is busywork that
@@ -106,7 +106,7 @@ def output_pdf_path(
 
 
 def family_of(case_id: str) -> str | None:
-    """The family a case id was generated under: `pii-packed-000001` -> `pii-packed`.
+    """The family a case id was generated under: `pii-detection-1` -> `pii-detection`.
 
     Longest prefix wins, so a family whose name extends another's still resolves.
     """

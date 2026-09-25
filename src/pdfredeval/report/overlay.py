@@ -20,7 +20,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from ..align import Frame
-from ..probe import Observations
 from ..types import Case
 from .palette import LIGHT, Mode, outcome_colour, outcome_glyph, outcome_label
 

@@ -50,8 +50,8 @@ benchmark whose own toolchain drifts cannot hold tools to that standard.
 
 ```sh
 uv run pdfredeval families
-uv run pdfredeval generate all --seed 1-3          # or one family: pii-packed
-uv run pdfredeval inspect pii-packed-000001 --probes
+uv run pdfredeval generate all --seed 1-3          # or one family: pii-detection
+uv run pdfredeval inspect pii-detection-1 --probes
 ```
 
 With no output flags, everything lands in one committed tree per package version (see
@@ -71,7 +71,7 @@ every channel and rendering condition, so no probe is excused as unsupported:
 
 ```sh
 uv run pdfredeval tools
-uv run pdfredeval submit acme:web pii-packed-000001 --operator you
+uv run pdfredeval submit acme:web pii-detection-1 --operator you
 #   ... follow <run_dir>/TASK.md, drop the tool's PDF into <run_dir>, any name ...
 uv run pdfredeval collect <run_dir>
 uv run pdfredeval score                  # every run of this version, then its reports
@@ -81,7 +81,7 @@ uv run pdfredeval score                  # every run of this version, then its r
 scoring a case against *itself* is the do-nothing tool, so it must report a leak rate of 1:
 
 ```sh
-uv run pdfredeval score some/dir/pii-packed-000001.pdf \
+uv run pdfredeval score some/dir/pii-detection-1.pdf \
     --case-dir some/dir
 ```
 
@@ -117,8 +117,25 @@ rates are never averaged.
 | `submit` | start a run; on the manual path writes a task for the operator |
 | `collect` | collect a delivered run and write its manifest |
 | `score` | align, probe and score a run — or any PDF against its case — then report on it |
+| `publish` | send scored runs to [redaction-tools.com](https://redaction-tools.com/benchmarks) for rescoring and review |
+| `publish-cases` | send cases and their ground truth to the site (staff keys only) |
 
-Publishing is not implemented, so it is absent rather than stubbed.
+### Publishing
+
+Create an API key on your [account page](https://redaction-tools.com/account), then:
+
+```sh
+export PDFREDEVAL_API_KEY=<prefix>.<secret>     # environment only, never a flag
+uv run pdfredeval publish <run_dir> --dry-run   # check, list, send nothing
+uv run pdfredeval publish <run_dir> --notes "Pro plan, default settings"
+```
+
+Runs are grouped into one submission per tool and dataset revision. Each run sends its
+`manifest.json`, `score/report.json`, the delivered PDF and its overlay, and nothing else:
+never `ground_truth.json`, `probes.csv`, screenshots or `entities.json`. The site rescores
+every PDF with the same scorer version and badges the result *verified* or *disputed*. An
+editor reviews it before it reaches the leaderboard. `--site` or `$PDFREDEVAL_SITE`
+points at another deployment, for example `http://localhost:8007`.
 
 ## Benchmark data
 
@@ -167,10 +184,10 @@ in the manifest. Keep one PDF per run folder; with two, `collect` asks which.
 
 ## Status
 
-Implemented: case generation, the adapter layer, the aligner, the probers, the scorer and
-the reporter.
+Implemented: case generation, the adapter layer, the aligner, the probers, the scorer, the
+reporter and the publisher.
 
-Not yet: the publisher; object probes (faces, signatures, QR codes, stamps), which leaves
+Not yet: object probes (faces, signatures, QR codes, stamps), which leaves
 the image, attachment and font-subset leak layers implemented but with nothing to catch;
 and the raster-dependent rendering conditions (handwriting, photo grounds, degraded
 scans), which are reported as skipped rather than silently omitted.

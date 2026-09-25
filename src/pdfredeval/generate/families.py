@@ -1,9 +1,7 @@
 """Case families. Each answers a different question; none is a substitute for another.
 
-* `pii-packed`          - many independently scored PII probes on one page
+* `pii-detection`         - many independently scored PII probes on one page
 * `extraction-conditions` - one value under varied rendering, scored per subject
-* `structural-traps`    - values reachable only through an awkward PDF structure
-* `redaction-layers`    - values planted per leak surface
 """
 
 from __future__ import annotations
@@ -149,7 +147,7 @@ class Generated:
 #: a sheet of invented identifiers with no explanation invites exactly the wrong guess
 #: about what it is.
 PURPOSES: dict[str, str] = {
-    "pii-packed": (
+    "pii-detection": (
         "Synthetic benchmark page - every value below is invented and refers to no real "
         "person. Purpose: measure whether a redaction tool removes the personal data "
         "while leaving the document references intact. Both failures are scored."
@@ -160,18 +158,6 @@ PURPOSES: dict[str, str] = {
         "subject - a single first-and-last name - appears under every orientation, "
         "polarity, provenance and size, so a cell measures its condition and nothing "
         "else; a copy surviving anywhere means the subject is still disclosed."
-    ),
-    "structural-traps": (
-        "Synthetic benchmark page - every value below is invented and refers to no real "
-        "person. Purpose: measure whether a tool reaches values that are in the file but "
-        "not plainly on the page - invisible text, annotations, hidden layers and an "
-        "earlier revision. Each trap is repeated so one result is not a fluke."
-    ),
-    "redaction-layers": (
-        "Synthetic benchmark page - every value below is invented and refers to no real "
-        "person. Purpose: measure which leak surfaces a tool's redaction actually "
-        "reaches. One value is planted per surface, so a survivor names the surface that "
-        "failed."
     ),
 }
 
@@ -244,7 +230,7 @@ def _section(
     return Grid(stack.take(body_height), columns, row_height)
 
 
-def pii_packed(
+def pii_detection(
     case_id: str,
     seed: int,
     *,
@@ -254,7 +240,7 @@ def pii_packed(
 ) -> tuple[CaseBuilder, tuple[Skipped, ...]]:
     """A structured remittance page: titled sections of aligned, equal-width columns."""
     layout = PageLayout()
-    b = CaseBuilder(case_id, seed, "pii-packed", layout, dataset_revision, generated_at)
+    b = CaseBuilder(case_id, seed, "pii-detection", layout, dataset_revision, generated_at)
     f = ValueFactory(seed)
     b.reserve_with(f)
     for text in b.brand_strings:
@@ -262,7 +248,7 @@ def pii_packed(
     _reserve_titles(f, "SUPPLIER", *(title for title, _, _ in sections))
 
     used = _intro(b, f, layout, "REMITTANCE ADVICE - retain for your records",
-                  "pii-packed")
+                  "pii-detection")
 
     stack = Stack(Slot(layout.content.x, layout.content.y, layout.content.width,
                        layout.content.height - used))
@@ -425,120 +411,9 @@ def extraction_conditions(
     return b, tuple(skipped)
 
 
-def _trap_family(
-    case_id: str,
-    seed: int,
-    family: str,
-    heading: str,
-    groups: tuple[tuple[str, str, str, int], ...],
-    metadata: tuple[tuple[str, str, bool], ...],
-    *,
-    replicates: int,
-    dataset_revision: str | None,
-    generated_at: str | None,
-) -> tuple[CaseBuilder, tuple[Skipped, ...]]:
-    """One titled section per surface, its replicates side by side in one row.
-
-    Replicated because a single probe per surface cannot separate a real failure from a
-    fluke; sectioned because the replicates are only comparable if they sit together.
-    """
-    layout = PageLayout()
-    b = CaseBuilder(case_id, seed, family, layout, dataset_revision, generated_at)
-    f = ValueFactory(seed)
-    b.reserve_with(f)
-    for text in b.brand_strings:
-        f.reserve_text(text)
-    _reserve_titles(f, *(title for title, _, _, _ in groups))
-    used = _intro(b, f, layout, heading, family)
-
-    stack = Stack(Slot(layout.content.x, layout.content.y, layout.content.width,
-                       layout.content.height - used))
-    adders = {
-        "text": b.add_text_probe,
-        "invisible": b.add_invisible_probe,
-        "annotation": b.add_annotation_probe,
-        "hidden": b.add_hidden_layer_probe,
-        "revision": b.add_prior_revision_probe,
-    }
-    for title, adder_name, kind, columns in groups:
-        count = 1 if adder_name == "revision" else replicates
-        # Columns follow the widest value the group can produce: an email needs half the
-        # page, and a cell too narrow for its value would run into its neighbour.
-        # Trap probes draw a box or a caption of their own, so they need a deeper row
-        # than a plain label-over-value field.
-        grid = _section(b, stack, title, min(columns, count), count,
-                        row_height=ROW_HEIGHT + 8.0)
-        if grid is None:
-            break
-        for _ in range(count):
-            try:
-                value = f.target(kind)
-                adders[adder_name](value, grid.cell())
-            except (Collision, PoolExhausted, OutOfSpace, ValueError):
-                continue
-
-    for i in range(replicates):
-        for key, kind, xmp in metadata:
-            try:
-                b.add_metadata_probe(f.target(kind), key=f"{key}{i or ''}", xmp=xmp)
-            except (Collision, PoolExhausted):
-                continue
-    return b, ()
-
-
-def structural_traps(
-    case_id: str,
-    seed: int,
-    *,
-    replicates: int = 3,
-    dataset_revision: str | None = None,
-    generated_at: str | None = None,
-) -> tuple[CaseBuilder, tuple[Skipped, ...]]:
-    """Values reachable only through an awkward structure, not an awkward rendering."""
-    return _trap_family(
-        case_id, seed, "structural-traps", "STRUCTURAL TRAP PROBES",
-        (
-            ("VISIBLE CONTROL", "text", "person", 3),
-            ("INVISIBLE TEXT - RENDER MODE 3", "invisible", "person", 3),
-            ("ANNOTATION CONTENTS", "annotation", "email", 2),
-            ("OPTIONAL CONTENT - HIDDEN LAYER", "hidden", "national_id", 3),
-            ("EARLIER REVISION", "revision", "card", 1),
-        ),
-        (("Subject", "passport", False), ("CustomClientRef", "iban", True)),
-        replicates=replicates, dataset_revision=dataset_revision,
-        generated_at=generated_at,
-    )
-
-
-def redaction_layers(
-    case_id: str,
-    seed: int,
-    *,
-    replicates: int = 3,
-    dataset_revision: str | None = None,
-    generated_at: str | None = None,
-) -> tuple[CaseBuilder, tuple[Skipped, ...]]:
-    """One value per leak surface the output is checked against, repeated."""
-    return _trap_family(
-        case_id, seed, "redaction-layers", "LEAK SURFACE PROBES",
-        (
-            ("RENDERED PIXELS AND CONTENT STREAM", "text", "person", 3),
-            ("CONTENT STREAM ONLY", "invisible", "email", 2),
-            ("ANNOTATIONS", "annotation", "phone", 3),
-            ("OPTIONAL CONTENT", "hidden", "account", 3),
-            ("EARLIER REVISION", "revision", "national_id", 1),
-        ),
-        (("Keywords", "dob", False), ("ClientRecord", "address", True)),
-        replicates=replicates, dataset_revision=dataset_revision,
-        generated_at=generated_at,
-    )
-
-
 FAMILIES: dict[str, Callable[..., tuple[CaseBuilder, tuple[Skipped, ...]]]] = {
-    "pii-packed": pii_packed,
+    "pii-detection": pii_detection,
     "extraction-conditions": extraction_conditions,
-    "structural-traps": structural_traps,
-    "redaction-layers": redaction_layers,
 }
 
 
@@ -555,7 +430,7 @@ def generate(
     """Build one case of a family and write it to `out_dir/<case_id>/`."""
     if family not in FAMILIES:
         raise KeyError(f"unknown family {family!r}; known: {', '.join(sorted(FAMILIES))}")
-    case_id = case_id or f"{family}-{seed:06d}"
+    case_id = case_id or f"{family}-{seed}"
     builder, skipped = FAMILIES[family](
         case_id, seed, dataset_revision=dataset_revision,
         generated_at=generated_at, **kwargs

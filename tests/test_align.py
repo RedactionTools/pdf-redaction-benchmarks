@@ -36,7 +36,7 @@ class AlignBase(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls._tmp = tempfile.TemporaryDirectory()
-        cls.case = generate("pii-packed", Path(cls._tmp.name), seed=3).case
+        cls.case = generate("pii-detection", Path(cls._tmp.name), seed=3).case
         cls.render = engines.render(cls.case.pdf_bytes, dpi=DPI)
         cls.frame = Frame.of(cls.case, cls.render, dpi=DPI)
 

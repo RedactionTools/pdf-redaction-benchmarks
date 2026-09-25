@@ -70,13 +70,13 @@ over one long table and makes the notebook layer almost free.
 
 | Surface | Responsibility |
 |---|---|
-| CLI | `pdfredeval`: generate cases, inspect them, submit and collect runs, score what comes back, report on it. Publishing is not implemented yet |
+| CLI | `pdfredeval`: generate cases, inspect them, submit and collect runs, score what comes back, report on it, publish it (`publish`, `publish-cases`) |
 | Python API | our own library surface — the same operations as calls, and the only real implementation |
 | Vendor adapters | drive the tool under test: an operator on the UI path, HTTP on the API path → [adapters.md](adapters.md) |
 | Reporter | tables for a terminal or a ticket, charts, and one self-contained HTML page per run or per comparison |
 | Overlays | visual inspection: ground truth drawn over the output, so a disputed result can be looked at rather than argued about |
 | Web UI — [redaction-tools.com](https://redaction-tools.com) ([repo](https://github.com/RedactionTools/redaction-tools)) | browse results, submit a run, host the leaderboard |
-| Auto-publish | push scored runs to the site via login/API |
+| Auto-publish | `pdfredeval publish`: push scored runs to the site with an API key; the site rescores and an editor reviews |
 
 ## Stack
 

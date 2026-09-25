@@ -1,9 +1,8 @@
 """`pdfredeval` command line.
 
-Covers the parts of the pipeline that exist: generating cases, inspecting them, driving
-an adapter through submit/collect, scoring what comes back and reporting on it.
-Publishing is not implemented, so it is absent rather than stubbed - a command that
-silently does nothing is worse than one that is not there.
+Covers the whole pipeline: generating cases, inspecting them, driving an adapter through
+submit/collect, scoring what comes back, reporting on it, and publishing scored runs (and,
+for staff, cases) to redaction-tools.com.
 
 Stdlib argparse only: generation and the adapter layer have no runtime dependencies, and
 a CLI is a poor reason to acquire the first one. `score` does - reporting included, so
@@ -98,7 +97,7 @@ def cmd_generate(args: argparse.Namespace) -> int:
     revision = args.dataset_revision or (ws.version if ws else None)
     planned = [
         (family, seed, (ws.cases_dir(family) if ws else args.out),
-         args.case_id or f"{family}-{seed:06d}")
+         args.case_id or f"{family}-{seed}")
         for family in families for seed in seeds
     ]
     existing = [out / cid for _, _, out, cid in planned if (out / cid).exists()]
@@ -597,6 +596,51 @@ def _rate(rate: dict[str, Any]) -> str:
     return f"{float(rate['value']):.4g}  [{low:.3g}, {high:.3g}] over n={rate['n']}"
 
 
+def cmd_publish(args: argparse.Namespace) -> int:
+    from .publish import SUBMISSIONS_PAGE, client_from_env, load_run, publish_runs
+
+    ws = _workspace(args)
+    targets = _expand_targets(args.target or [ws.runs_root])
+    # Every run is checked before anything is sent: a half-published batch is a
+    # submission the site has to review twice.
+    runs = [load_run(Path(target)) for target in targets]
+    if not runs:
+        raise BenchmarkError("nothing to publish: no runs found")
+
+    if args.dry_run:
+        for run in runs:
+            overlay = "with overlay" if run.overlay else "no overlay (the site draws one)"
+            print(f"{run.manifest.tool_id}  {run.manifest.dataset_revision}  "
+                  f"{run.manifest.run_id}  ({overlay})")
+        print(f"dry run: {len(runs)} run(s) would be published; nothing was sent")
+        return 0
+
+    client = client_from_env(args.site)
+    for submission_id, count in publish_runs(client, runs, suite=args.suite, notes=args.notes):
+        print(f"submission {submission_id}: {count} run{'s' if count != 1 else ''} sent "
+              "for scoring and review")
+    print(f"follow them at {SUBMISSIONS_PAGE}")
+    return 0
+
+
+def cmd_publish_cases(args: argparse.Namespace) -> int:
+    from .publish import case_dirs, client_from_env
+
+    ws = _workspace(args)
+    root = args.cases_dir or ws.cases_root
+    cases = list(case_dirs(root))
+    if not cases:
+        raise BenchmarkError(f"no cases under {root}")
+    holdout = set(args.holdout or ())
+    client = client_from_env(args.site)
+    for case_dir in cases:
+        visibility = "holdout" if case_dir.name in holdout else "public"
+        client.publish_case(args.suite, case_dir, visibility)
+        print(f"{case_dir.name}  {visibility}")
+    print(f"published {len(cases)} cases")
+    return 0
+
+
 # --- wiring -----------------------------------------------------------------------
 
 
@@ -704,6 +748,34 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-html", action="store_true")
     p.add_argument("--no-markdown", action="store_true")
     p.set_defaults(func=cmd_score)
+
+    site = argparse.ArgumentParser(add_help=False)
+    group = site.add_argument_group("site")
+    group.add_argument("--site", help="the site's API origin (default: $PDFREDEVAL_SITE "
+                                      "or https://backend.redaction-tools.com)")
+    group.add_argument("--suite", default="pdf", help="benchmark suite (default: pdf)")
+
+    p = sub.add_parser(
+        "publish", parents=[tree, site],
+        help="publish scored runs to redaction-tools.com (API key in $PDFREDEVAL_API_KEY)",
+    )
+    p.add_argument("target", type=Path, nargs="*",
+                   help="run directories or a parent holding several "
+                        "(default: every run of this version)")
+    p.add_argument("--notes", default="", help="shown to the editor who reviews it")
+    p.add_argument("--dry-run", action="store_true",
+                   help="check the runs and list what would be sent; send nothing")
+    p.set_defaults(func=cmd_publish)
+
+    p = sub.add_parser(
+        "publish-cases", parents=[tree, site],
+        help="publish cases and their ground truth to the site (staff API key)",
+    )
+    p.add_argument("--cases-dir", type=Path,
+                   help="default: <bench-root>/<version>/cases")
+    p.add_argument("--holdout", nargs="*", metavar="CASE_ID",
+                   help="cases the site scores but never shows")
+    p.set_defaults(func=cmd_publish_cases)
 
     return parser
 

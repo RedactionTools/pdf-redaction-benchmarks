@@ -26,10 +26,8 @@ The two are reported side by side, never merged.
 
 | Family | One page of | Segmented by |
 |---|---|---|
-| `pii-packed` | text PII, objects, distractors | category, difficulty tier |
+| `pii-detection` | text PII, objects, distractors | category, difficulty tier |
 | `extraction-conditions` | the same value under varied rendering | orientation, polarity, provenance, scale |
-| `structural-traps` | text-layer traps | trap type |
-| `redaction-layers` | values planted per leak surface | layer |
 
 The condition matrix gets its own page because its 22 probes would not fit beside the PII
 page's 30–60 (→ [../metrics/extraction.md](../metrics/extraction.md)).
@@ -40,7 +38,7 @@ A probe is one independently scored item with known ground truth. Because we get
 page**, the page is packed — but packed as a *document*, not as a list. Probes sit in
 titled sections of aligned, equal-width columns, and each section's column count follows
 the widest field it holds: an email needs half the page, a licence plate a quarter. A
-`pii-packed` sheet carries around **85 probes**, turning n=1 into n≈85.
+`pii-detection` sheet carries around **85 probes**, turning n=1 into n≈85.
 
 Structure is not decoration. A page a person cannot read is a page an operator cannot
 check, and a ragged one is harder to compare probe against probe. Packing stays the
@@ -115,7 +113,7 @@ collide with them.
 being measured, and the seed regenerates the case — including a holdout case. It lives in
 `ground_truth.json`, which never leaves us.
 
-> A case id derived from the seed (the default, `family-000042`) is itself a hint. For the
+> A case id derived from the seed (the default, `family-42`) is itself a hint. For the
 > holdout split, pass an opaque `--case-id`.
 
 ## Ground truth

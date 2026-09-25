@@ -162,20 +162,20 @@ _Only measurable when the tool reports what it found. When it does not (`inferre
 
 | Run | Field | Value |
 |:---|:---|:---|
-| 20260925T080508-saferedact-app-web-extraction-conditions-000001-a1-39731d | tool | saferedact-app:web |
-| 20260925T080508-saferedact-app-web-extraction-conditions-000001-a1-39731d | observed_at | 2026-09-25T08:14:47+00:00 |
-| 20260925T080508-saferedact-app-web-extraction-conditions-000001-a1-39731d | attempt | 1 |
-| 20260925T080508-saferedact-app-web-extraction-conditions-000001-a1-39731d | transport | manual |
-| 20260925T080508-saferedact-app-web-extraction-conditions-000001-a1-39731d | case | extraction-conditions-000001 |
-| 20260925T080508-saferedact-app-web-extraction-conditions-000001-a1-39731d | dataset revision | v0.1.1 |
-| 20260925T080508-saferedact-app-web-extraction-conditions-000001-a1-39731d | output sha256 | 1b3459cd734f2d17 |
-| 20260925T080508-saferedact-app-web-extraction-conditions-000001-a1-39731d | engine ocr | tesseract |
-| 20260925T080508-saferedact-app-web-extraction-conditions-000001-a1-39731d | engine pdfium | 153.0.7999.0 |
-| 20260925T080508-saferedact-app-web-extraction-conditions-000001-a1-39731d | engine pypdf | 6.19.0 |
-| 20260925T080508-saferedact-app-web-extraction-conditions-000001-a1-39731d | engine pypdfium2 | 5.13.0 |
-| 20260925T080508-saferedact-app-web-extraction-conditions-000001-a1-39731d | engine renderer | pypdfium2 |
-| 20260925T080508-saferedact-app-web-extraction-conditions-000001-a1-39731d | engine tesseract | tesseract 5.5.2 |
-| 20260925T080508-saferedact-app-web-extraction-conditions-000001-a1-39731d | alignment | page_box_verified · residual 1.12px |
+| 20260925T080508-saferedact-app-web-extraction-conditions-1-a1-39731d | tool | saferedact-app:web |
+| 20260925T080508-saferedact-app-web-extraction-conditions-1-a1-39731d | observed_at | 2026-09-25T08:14:47+00:00 |
+| 20260925T080508-saferedact-app-web-extraction-conditions-1-a1-39731d | attempt | 1 |
+| 20260925T080508-saferedact-app-web-extraction-conditions-1-a1-39731d | transport | manual |
+| 20260925T080508-saferedact-app-web-extraction-conditions-1-a1-39731d | case | extraction-conditions-1 |
+| 20260925T080508-saferedact-app-web-extraction-conditions-1-a1-39731d | dataset revision | v0.1.1 |
+| 20260925T080508-saferedact-app-web-extraction-conditions-1-a1-39731d | output sha256 | 1b3459cd734f2d17 |
+| 20260925T080508-saferedact-app-web-extraction-conditions-1-a1-39731d | engine ocr | tesseract |
+| 20260925T080508-saferedact-app-web-extraction-conditions-1-a1-39731d | engine pdfium | 153.0.7999.0 |
+| 20260925T080508-saferedact-app-web-extraction-conditions-1-a1-39731d | engine pypdf | 6.19.0 |
+| 20260925T080508-saferedact-app-web-extraction-conditions-1-a1-39731d | engine pypdfium2 | 5.13.0 |
+| 20260925T080508-saferedact-app-web-extraction-conditions-1-a1-39731d | engine renderer | pypdfium2 |
+| 20260925T080508-saferedact-app-web-extraction-conditions-1-a1-39731d | engine tesseract | tesseract 5.5.2 |
+| 20260925T080508-saferedact-app-web-extraction-conditions-1-a1-39731d | alignment | page_box_verified · residual 1.12px |
 | thresholds | beta | 2.0 |
 | thresholds | delta_px | 24 |
 | thresholds | disclosure_length | {'ACCOUNT': 4, 'CARD': 4, 'EMAIL': 4, 'IBAN': 4, 'NATIONAL_ID': 4, 'PASSPORT': 4, 'PHONE': 4, 'PLATE': 4, 'POSTCODE': 4} |

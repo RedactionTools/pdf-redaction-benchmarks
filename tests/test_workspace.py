@@ -52,28 +52,28 @@ class NamingTests(unittest.TestCase):
         self.assertIsNone(family_of("adhoc"))
 
     def test_names_say_what_the_file_is(self):
-        self.assertEqual(output_pdf_name("pii-packed-000001"), "pii-packed-000001.pdf")
+        self.assertEqual(output_pdf_name("pii-detection-1"), "pii-detection-1.pdf")
         self.assertEqual(version_tag("0.1.1"), "v0.1.1")
         self.assertEqual(version_tag("v0.1.1"), "v0.1.1")
 
     def test_a_case_is_found_nested_by_family_or_flat(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            nested = root / "pii-packed" / "pii-packed-000001"
+            nested = root / "pii-detection" / "pii-detection-1"
             nested.mkdir(parents=True)
             (nested / "ground_truth.json").write_text("{}")
-            self.assertEqual(resolve_case("pii-packed-000001", root), nested)
+            self.assertEqual(resolve_case("pii-detection-1", root), nested)
 
-            flat = root / "structural-traps-000002"
+            flat = root / "extraction-conditions-2"
             flat.mkdir()
             (flat / "ground_truth.json").write_text("{}")
-            self.assertEqual(resolve_case("structural-traps-000002", root), flat)
+            self.assertEqual(resolve_case("extraction-conditions-2", root), flat)
 
     def test_a_legacy_case_pdf_still_loads(self):
         with tempfile.TemporaryDirectory() as tmp:
-            run("generate", "pii-packed", "-s", "1", "-o", tmp)
-            case_dir = Path(tmp) / "pii-packed-000001"
-            (case_dir / "pii-packed-000001.pdf").rename(case_dir / "case.pdf")
+            run("generate", "pii-detection", "-s", "1", "-o", tmp)
+            case_dir = Path(tmp) / "pii-detection-1"
+            (case_dir / "pii-detection-1.pdf").rename(case_dir / "case.pdf")
             truth = json.loads((case_dir / "ground_truth.json").read_text())
             truth.pop("pdf")
             (case_dir / "ground_truth.json").write_text(json.dumps(truth))
@@ -132,30 +132,31 @@ class TreeTests(unittest.TestCase):
         code, _, err = run("generate", "all", "-s", "1")
         self.assertEqual(code, 0, err)
         for family in FAMILIES:
-            case_dir = self.ws.cases_dir(family) / f"{family}-000001"
-            self.assertTrue((case_dir / f"{family}-000001.pdf").exists())
+            case_dir = self.ws.cases_dir(family) / f"{family}-1"
+            self.assertTrue((case_dir / f"{family}-1.pdf").exists())
             truth = json.loads((case_dir / "ground_truth.json").read_text())
             self.assertEqual(truth["dataset_revision"], VERSION)
         self.assertEqual((self.root / "LATEST").read_text().strip(), VERSION)
         index = (self.ws.home / "README.md").read_text()
-        self.assertIn("| [pii-packed](cases/pii-packed/) | 1 |", index)
+        self.assertIn("| [pii-detection](cases/pii-detection/) | 1 |", index)
 
     def test_existing_cases_are_never_overwritten_unasked(self):
-        run("generate", "pii-packed", "-s", "1-2")
-        pdf = self.ws.cases_dir("pii-packed") / "pii-packed-000001" / "pii-packed-000001.pdf"
+        run("generate", "pii-detection", "-s", "1-2")
+        case_dir = self.ws.cases_dir("pii-detection") / "pii-detection-1"
+        pdf = case_dir / "pii-detection-1.pdf"
         os.utime(pdf, (1, 1))
 
-        code, _, err = run("generate", "pii-packed", "-s", "1-3")
+        code, _, err = run("generate", "pii-detection", "-s", "1-3")
         self.assertEqual(code, 1)
         self.assertIn("2 cases already exist", err)
-        self.assertFalse((pdf.parent.parent / "pii-packed-000003").exists())
+        self.assertFalse((pdf.parent.parent / "pii-detection-3").exists())
 
-        code, out, _ = run("generate", "pii-packed", "-s", "1-3", "--skip-existing")
+        code, out, _ = run("generate", "pii-detection", "-s", "1-3", "--skip-existing")
         self.assertEqual(code, 0)
         self.assertEqual(len(out.strip().splitlines()), 1)
         self.assertEqual(pdf.stat().st_mtime, 1)
 
-        code, _, _ = run("generate", "pii-packed", "-s", "1", "--force")
+        code, _, _ = run("generate", "pii-detection", "-s", "1", "--force")
         self.assertEqual(code, 0)
         self.assertNotEqual(pdf.stat().st_mtime, 1)
 
@@ -171,13 +172,13 @@ class TreeTests(unittest.TestCase):
         return run_dir
 
     def test_runs_scores_and_reports_land_per_tool_and_family(self):
-        run("generate", "redaction-layers", "-s", "5")
-        demo = self._collected_run(DemoWeb, "redaction-layers-000005")
-        self._collected_run(OtherApi, "redaction-layers-000005")
+        run("generate", "pii-detection", "-s", "5")
+        demo = self._collected_run(DemoWeb, "pii-detection-5")
+        self._collected_run(OtherApi, "pii-detection-5")
         manifest = json.loads((demo / "manifest.json").read_text())
         # Delivered under the vendor's own name; the manifest pins which file it was.
         self.assertEqual(manifest["output_name"], "downloaded from the vendor (1).pdf")
-        self.assertIn("redaction-layers-000005.pdf", (demo / "TASK.md").read_text())
+        self.assertIn("pii-detection-5.pdf", (demo / "TASK.md").read_text())
 
         code, _, err = run("score", "--dpi", "100", "--no-ocr")
         self.assertEqual(code, 0, err)
@@ -186,11 +187,11 @@ class TreeTests(unittest.TestCase):
         for tool in ("demo-web", "other-api", "_summary"):
             with self.subTest(tool=tool):
                 self.assertTrue((reports / tool / "report.html").exists())
-                self.assertTrue((reports / tool / "redaction-layers" / "report.md").exists())
+                self.assertTrue((reports / tool / "pii-detection" / "report.md").exists())
         # Overlays by default, drawn once per run: in its tool-and-family report only.
         drawn = sorted(p.relative_to(reports) for p in reports.rglob("*-overlay.png"))
         self.assertEqual([str(p.parent) for p in drawn], [
-            "demo-web/redaction-layers/overlay", "other-api/redaction-layers/overlay",
+            "demo-web/pii-detection/overlay", "other-api/pii-detection/overlay",
         ])
         # ...and shown on every page that includes the run, summary included.
         for page in reports.rglob("report.html"):
@@ -222,30 +223,30 @@ class TreeTests(unittest.TestCase):
         self.assertEqual(code, 0, err)
 
     def test_a_legacy_output_name_still_scores(self):
-        run("generate", "redaction-layers", "-s", "5")
+        run("generate", "pii-detection", "-s", "5")
         registry.register(DemoWeb, replace=True)
-        run("submit", "demo:web", "redaction-layers-000005")
+        run("submit", "demo:web", "pii-detection-5")
         run_dir = next(self.ws.runs_dir("demo:web").iterdir())
-        case_pdf = self.ws.cases_dir("redaction-layers") / "redaction-layers-000005"
-        shutil.copyfile(case_pdf / "redaction-layers-000005.pdf", run_dir / "output.pdf")
+        case_pdf = self.ws.cases_dir("pii-detection") / "pii-detection-5"
+        shutil.copyfile(case_pdf / "pii-detection-5.pdf", run_dir / "output.pdf")
         self.assertEqual(run("collect", str(run_dir))[0], 0)
         code, _, err = run("score", str(run_dir), "--dpi", "100", "--no-ocr")
         self.assertEqual(code, 0, err)
         self.assertTrue(list((run_dir / "report" / "overlay").glob("*-overlay.png")))
 
     def test_a_sweep_that_finds_one_run_still_fills_reports(self):
-        run("generate", "redaction-layers", "-s", "5")
-        self._collected_run(DemoWeb, "redaction-layers-000005")
+        run("generate", "pii-detection", "-s", "5")
+        self._collected_run(DemoWeb, "pii-detection-5")
         code, _, err = run("score", "--dpi", "100", "--no-ocr")
         self.assertEqual(code, 0, err)
         tool = self.ws.reports_dir("demo:web")
         self.assertTrue((tool / "report.html").exists())
-        self.assertTrue(list((tool / "redaction-layers" / "overlay").glob("*.png")))
+        self.assertTrue(list((tool / "pii-detection" / "overlay").glob("*.png")))
         self.assertFalse(self.ws.reports_dir().exists(), "one tool: no summary")
 
     def test_no_overlay_draws_none(self):
-        run("generate", "redaction-layers", "-s", "5")
-        run_dir = self._collected_run(DemoWeb, "redaction-layers-000005")
+        run("generate", "pii-detection", "-s", "5")
+        run_dir = self._collected_run(DemoWeb, "pii-detection-5")
         code, _, err = run("score", str(run_dir), "--dpi", "100", "--no-ocr",
                            "--no-overlay")
         self.assertEqual(code, 0, err)
@@ -253,9 +254,9 @@ class TreeTests(unittest.TestCase):
         self.assertFalse((run_dir / "report" / "overlay").exists())
 
     def test_two_unexplained_pdfs_are_refused_not_guessed(self):
-        run("generate", "redaction-layers", "-s", "5")
+        run("generate", "pii-detection", "-s", "5")
         registry.register(DemoWeb, replace=True)
-        run("submit", "demo:web", "redaction-layers-000005")
+        run("submit", "demo:web", "pii-detection-5")
         run_dir = next(self.ws.runs_dir("demo:web").iterdir())
         for name in ("redacted.pdf", "redacted (1).pdf"):
             (run_dir / name).write_bytes(b"%PDF-1.7\nx\n%%EOF\n")

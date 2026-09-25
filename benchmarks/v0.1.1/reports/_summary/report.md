@@ -64,11 +64,11 @@ _Every probe lands in exactly one row: 162 of 162. Leak rate = Leaked / (Leaked 
 
 | Check | Result | What it means |
 |:---|:---|:---|
-| 20260925T081446-ai-redact-web-extraction-conditions-000001-a1-60bfda | pass | all passed: opens, pages, geometry, text_retained, not_rasterised |
-| 20260925T081446-pdf-redaction-web-extraction-conditions-000001-a1-21dbff | pass | all passed: opens, pages, geometry, text_retained, not_rasterised |
-| 20260925T080508-saferedact-app-web-extraction-conditions-000001-a1-39731d · geometry | FAIL | the page size changed (1586.7x2244.0pt against 595.3x841.9pt) |
-| 20260925T080508-saferedact-app-web-extraction-conditions-000001-a1-39731d · text_retained | FAIL | too little of the page's text can still be selected or searched (TR = 0.000, floor 0.9) |
-| 20260925T080508-saferedact-app-web-extraction-conditions-000001-a1-39731d · not_rasterised | FAIL | the page was turned into an image; text is no longer selectable or searchable (0 of 1676 extractable characters survive (0.0%); flattening the page to an image redacts everything perfectly and destroys the document) |
+| 20260925T081446-ai-redact-web-extraction-conditions-1-a1-60bfda | pass | all passed: opens, pages, geometry, text_retained, not_rasterised |
+| 20260925T081446-pdf-redaction-web-extraction-conditions-1-a1-21dbff | pass | all passed: opens, pages, geometry, text_retained, not_rasterised |
+| 20260925T080508-saferedact-app-web-extraction-conditions-1-a1-39731d · geometry | FAIL | the page size changed (1586.7x2244.0pt against 595.3x841.9pt) |
+| 20260925T080508-saferedact-app-web-extraction-conditions-1-a1-39731d · text_retained | FAIL | too little of the page's text can still be selected or searched (TR = 0.000, floor 0.9) |
+| 20260925T080508-saferedact-app-web-extraction-conditions-1-a1-39731d · not_rasterised | FAIL | the page was turned into an image; text is no longer selectable or searchable (0 of 1676 extractable characters survive (0.0%); flattening the page to an image redacts everything perfectly and destroys the document) |
 
 _These checks do not change the scores; a failure is a warning next to them. Turning the page into a picture hides every value and also destroys the document, and these checks are what catch that._
 
@@ -168,9 +168,9 @@ _How much worse the tool does under each condition than on plain, upright text. 
 
 | Run | Mode | Recall | Precision | Type accuracy | Note |
 |:---|:---|---:|---:|---:|:---|
-| 20260925T081446-ai-redact-web-extraction-conditions-000001-a1-60bfda | inferred | - | - | - | the tool reported no entity list, so detection is unidentifiable: a detection miss and a redaction failure are the same observation. Redaction outcomes are reported instead. |
-| 20260925T081446-pdf-redaction-web-extraction-conditions-000001-a1-21dbff | inferred | - | - | - | the tool reported no entity list, so detection is unidentifiable: a detection miss and a redaction failure are the same observation. Redaction outcomes are reported instead. |
-| 20260925T080508-saferedact-app-web-extraction-conditions-000001-a1-39731d | inferred | - | - | - | the tool reported no entity list, so detection is unidentifiable: a detection miss and a redaction failure are the same observation. Redaction outcomes are reported instead. |
+| 20260925T081446-ai-redact-web-extraction-conditions-1-a1-60bfda | inferred | - | - | - | the tool reported no entity list, so detection is unidentifiable: a detection miss and a redaction failure are the same observation. Redaction outcomes are reported instead. |
+| 20260925T081446-pdf-redaction-web-extraction-conditions-1-a1-21dbff | inferred | - | - | - | the tool reported no entity list, so detection is unidentifiable: a detection miss and a redaction failure are the same observation. Redaction outcomes are reported instead. |
+| 20260925T080508-saferedact-app-web-extraction-conditions-1-a1-39731d | inferred | - | - | - | the tool reported no entity list, so detection is unidentifiable: a detection miss and a redaction failure are the same observation. Redaction outcomes are reported instead. |
 
 _Only measurable when the tool reports what it found. When it does not (`inferred`), a value it never spotted and one it spotted but failed to remove look the same, so no separate detection score is given._
 
@@ -184,30 +184,30 @@ _Only measurable when the tool reports what it found. When it does not (`inferre
 | all runs | engine pypdfium2 | 5.13.0 |
 | all runs | engine renderer | pypdfium2 |
 | all runs | engine tesseract | tesseract 5.5.2 |
-| 20260925T081446-ai-redact-web-extraction-conditions-000001-a1-60bfda | tool | ai-redact:web |
-| 20260925T081446-ai-redact-web-extraction-conditions-000001-a1-60bfda | observed_at | 2026-09-25T08:14:46+00:00 |
-| 20260925T081446-ai-redact-web-extraction-conditions-000001-a1-60bfda | attempt | 1 |
-| 20260925T081446-ai-redact-web-extraction-conditions-000001-a1-60bfda | transport | manual |
-| 20260925T081446-ai-redact-web-extraction-conditions-000001-a1-60bfda | case | extraction-conditions-000001 |
-| 20260925T081446-ai-redact-web-extraction-conditions-000001-a1-60bfda | dataset revision | v0.1.1 |
-| 20260925T081446-ai-redact-web-extraction-conditions-000001-a1-60bfda | output sha256 | 9fee1ba560c40c39 |
-| 20260925T081446-ai-redact-web-extraction-conditions-000001-a1-60bfda | alignment | fiducial · residual 0.0px |
-| 20260925T081446-pdf-redaction-web-extraction-conditions-000001-a1-21dbff | tool | pdf-redaction:web |
-| 20260925T081446-pdf-redaction-web-extraction-conditions-000001-a1-21dbff | observed_at | 2026-09-25T08:14:47+00:00 |
-| 20260925T081446-pdf-redaction-web-extraction-conditions-000001-a1-21dbff | attempt | 1 |
-| 20260925T081446-pdf-redaction-web-extraction-conditions-000001-a1-21dbff | transport | manual |
-| 20260925T081446-pdf-redaction-web-extraction-conditions-000001-a1-21dbff | case | extraction-conditions-000001 |
-| 20260925T081446-pdf-redaction-web-extraction-conditions-000001-a1-21dbff | dataset revision | v0.1.1 |
-| 20260925T081446-pdf-redaction-web-extraction-conditions-000001-a1-21dbff | output sha256 | 4c271feece6f5443 |
-| 20260925T081446-pdf-redaction-web-extraction-conditions-000001-a1-21dbff | alignment | fiducial · residual 0.348px |
-| 20260925T080508-saferedact-app-web-extraction-conditions-000001-a1-39731d | tool | saferedact-app:web |
-| 20260925T080508-saferedact-app-web-extraction-conditions-000001-a1-39731d | observed_at | 2026-09-25T08:14:47+00:00 |
-| 20260925T080508-saferedact-app-web-extraction-conditions-000001-a1-39731d | attempt | 1 |
-| 20260925T080508-saferedact-app-web-extraction-conditions-000001-a1-39731d | transport | manual |
-| 20260925T080508-saferedact-app-web-extraction-conditions-000001-a1-39731d | case | extraction-conditions-000001 |
-| 20260925T080508-saferedact-app-web-extraction-conditions-000001-a1-39731d | dataset revision | v0.1.1 |
-| 20260925T080508-saferedact-app-web-extraction-conditions-000001-a1-39731d | output sha256 | 1b3459cd734f2d17 |
-| 20260925T080508-saferedact-app-web-extraction-conditions-000001-a1-39731d | alignment | page_box_verified · residual 1.12px |
+| 20260925T081446-ai-redact-web-extraction-conditions-1-a1-60bfda | tool | ai-redact:web |
+| 20260925T081446-ai-redact-web-extraction-conditions-1-a1-60bfda | observed_at | 2026-09-25T08:14:46+00:00 |
+| 20260925T081446-ai-redact-web-extraction-conditions-1-a1-60bfda | attempt | 1 |
+| 20260925T081446-ai-redact-web-extraction-conditions-1-a1-60bfda | transport | manual |
+| 20260925T081446-ai-redact-web-extraction-conditions-1-a1-60bfda | case | extraction-conditions-1 |
+| 20260925T081446-ai-redact-web-extraction-conditions-1-a1-60bfda | dataset revision | v0.1.1 |
+| 20260925T081446-ai-redact-web-extraction-conditions-1-a1-60bfda | output sha256 | 9fee1ba560c40c39 |
+| 20260925T081446-ai-redact-web-extraction-conditions-1-a1-60bfda | alignment | fiducial · residual 0.0px |
+| 20260925T081446-pdf-redaction-web-extraction-conditions-1-a1-21dbff | tool | pdf-redaction:web |
+| 20260925T081446-pdf-redaction-web-extraction-conditions-1-a1-21dbff | observed_at | 2026-09-25T08:14:47+00:00 |
+| 20260925T081446-pdf-redaction-web-extraction-conditions-1-a1-21dbff | attempt | 1 |
+| 20260925T081446-pdf-redaction-web-extraction-conditions-1-a1-21dbff | transport | manual |
+| 20260925T081446-pdf-redaction-web-extraction-conditions-1-a1-21dbff | case | extraction-conditions-1 |
+| 20260925T081446-pdf-redaction-web-extraction-conditions-1-a1-21dbff | dataset revision | v0.1.1 |
+| 20260925T081446-pdf-redaction-web-extraction-conditions-1-a1-21dbff | output sha256 | 4c271feece6f5443 |
+| 20260925T081446-pdf-redaction-web-extraction-conditions-1-a1-21dbff | alignment | fiducial · residual 0.348px |
+| 20260925T080508-saferedact-app-web-extraction-conditions-1-a1-39731d | tool | saferedact-app:web |
+| 20260925T080508-saferedact-app-web-extraction-conditions-1-a1-39731d | observed_at | 2026-09-25T08:14:47+00:00 |
+| 20260925T080508-saferedact-app-web-extraction-conditions-1-a1-39731d | attempt | 1 |
+| 20260925T080508-saferedact-app-web-extraction-conditions-1-a1-39731d | transport | manual |
+| 20260925T080508-saferedact-app-web-extraction-conditions-1-a1-39731d | case | extraction-conditions-1 |
+| 20260925T080508-saferedact-app-web-extraction-conditions-1-a1-39731d | dataset revision | v0.1.1 |
+| 20260925T080508-saferedact-app-web-extraction-conditions-1-a1-39731d | output sha256 | 1b3459cd734f2d17 |
+| 20260925T080508-saferedact-app-web-extraction-conditions-1-a1-39731d | alignment | page_box_verified · residual 1.12px |
 | thresholds | beta | 2.0 |
 | thresholds | delta_px | 24 |
 | thresholds | disclosure_length | {'ACCOUNT': 4, 'CARD': 4, 'EMAIL': 4, 'IBAN': 4, 'NATIONAL_ID': 4, 'PASSPORT': 4, 'PHONE': 4, 'PLATE': 4, 'POSTCODE': 4} |

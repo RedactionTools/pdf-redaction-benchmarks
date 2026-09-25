@@ -13,9 +13,9 @@ from pathlib import Path
 from unittest import mock
 
 import fakes
+from surfaces import leak_surface_case
 
 from pdfredeval import engines
-from pdfredeval.generate import generate
 from pdfredeval.probe import images as images_probe
 from pdfredeval.probe import metadata as metadata_probe
 from pdfredeval.probe import ocr as ocr_probe
@@ -31,14 +31,14 @@ THRESHOLDS = DEFAULTS.but(dpi=120)
 
 
 class ProbeBase(unittest.TestCase):
-    """One `redaction-layers` case: a value planted on every leak surface."""
+    """One case with a value planted on every leak surface."""
 
     case: Case
 
     @classmethod
     def setUpClass(cls) -> None:
         cls._tmp = tempfile.TemporaryDirectory()
-        cls.case = generate("redaction-layers", Path(cls._tmp.name), seed=4).case
+        cls.case = leak_surface_case(Path(cls._tmp.name), seed=4)
         cls.pdf = cls.case.pdf_bytes
 
     @classmethod

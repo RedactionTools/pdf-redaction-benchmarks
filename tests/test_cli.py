@@ -66,24 +66,24 @@ class CommandTests(unittest.TestCase):
     def test_families_lists_all(self):
         code, out, _ = run("families")
         self.assertEqual(code, 0)
-        self.assertIn("pii-packed", out)
+        self.assertIn("pii-detection", out)
         self.assertIn("extraction-conditions", out)
 
     def test_generate_writes_case_and_truth(self):
-        code, out, _ = run("generate", "pii-packed", "-s", "42", "-o", str(self.out))
+        code, out, _ = run("generate", "pii-detection", "-s", "42", "-o", str(self.out))
         self.assertEqual(code, 0)
-        case_dir = self.out / "pii-packed-000042"
-        self.assertTrue((case_dir / "pii-packed-000042.pdf").exists())
+        case_dir = self.out / "pii-detection-42"
+        self.assertTrue((case_dir / "pii-detection-42.pdf").exists())
         self.assertFalse((case_dir / "case.pdf").exists())
         self.assertTrue((case_dir / "ground_truth.json").exists())
         self.assertRegex(out, r"\d+ probes")
 
     def test_generate_accepts_a_seed_range(self):
-        code, out, _ = run("generate", "pii-packed", "-s", "1-3", "-o", str(self.out))
+        code, out, _ = run("generate", "pii-detection", "-s", "1-3", "-o", str(self.out))
         self.assertEqual(code, 0)
         self.assertEqual(len(out.strip().splitlines()), 3)
         for seed in (1, 2, 3):
-            case_id = f"pii-packed-{seed:06d}"
+            case_id = f"pii-detection-{seed}"
             self.assertTrue((self.out / case_id / f"{case_id}.pdf").exists())
 
     def test_generate_reports_skipped_cells_on_stderr(self):
@@ -104,7 +104,7 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(err.strip(), "")
 
     def test_generate_rejects_case_id_with_multiple_seeds(self):
-        code, _, err = run("generate", "pii-packed", "-s", "1-2", "-o", str(self.out),
+        code, _, err = run("generate", "pii-detection", "-s", "1-2", "-o", str(self.out),
                            "--case-id", "fixed")
         self.assertEqual(code, 1)
         self.assertIn("--case-id", err)
@@ -116,20 +116,19 @@ class CommandTests(unittest.TestCase):
         self.assertNotIn("Traceback", err)
 
     def test_inspect_summarises(self):
-        run("generate", "structural-traps", "-s", "5", "-o", str(self.out),
+        run("generate", "pii-detection", "-s", "5", "-o", str(self.out),
             "--dataset-revision", "rev-9")
-        code, out, _ = run("inspect", str(self.out / "structural-traps-000005"))
+        code, out, _ = run("inspect", str(self.out / "pii-detection-5"))
         self.assertEqual(code, 0)
-        self.assertIn("structural-traps", out)
+        self.assertIn("pii-detection", out)
         self.assertIn("rev-9", out)
         self.assertIn("conflicts     0", out)
 
-    def test_inspect_probes_lists_traps(self):
-        run("generate", "structural-traps", "-s", "5", "-o", str(self.out))
-        code, out, _ = run("inspect", str(self.out / "structural-traps-000005"), "--probes")
+    def test_inspect_probes_lists_channels(self):
+        run("generate", "pii-detection", "-s", "5", "-o", str(self.out))
+        code, out, _ = run("inspect", str(self.out / "pii-detection-5"), "--probes")
         self.assertEqual(code, 0)
-        self.assertIn("trap=invisible_text", out)
-        self.assertIn("trap=prior_revision", out)
+        self.assertIn("trap=info_dict", out)
 
     def test_tools_reports_an_empty_registry_as_a_failure(self):
         code, _, err = run("tools")
@@ -144,8 +143,8 @@ class CommandTests(unittest.TestCase):
 
     def test_submit_then_collect_round_trip(self):
         registry.register(DemoWeb, replace=True)
-        run("generate", "pii-packed", "-s", "3", "-o", str(self.out))
-        case_dir = self.out / "pii-packed-000003"
+        run("generate", "pii-detection", "-s", "3", "-o", str(self.out))
+        case_dir = self.out / "pii-detection-3"
         runs = self.out / "runs"
 
         code, out, _ = run("submit", "demo:web", str(case_dir),
@@ -175,9 +174,9 @@ class CommandTests(unittest.TestCase):
     def test_run_identity_survives_a_fresh_process_at_collect(self):
         """submit and collect are days and processes apart on the manual path."""
         registry.register(DemoWeb, replace=True)
-        run("generate", "pii-packed", "-s", "4", "-o", str(self.out))
+        run("generate", "pii-detection", "-s", "4", "-o", str(self.out))
         runs = self.out / "runs"
-        run("submit", "demo:web", str(self.out / "pii-packed-000004"),
+        run("submit", "demo:web", str(self.out / "pii-detection-4"),
             "--runs-dir", str(runs), "--operator", "alex", "--tier", "free",
             "--dataset-revision", "rev-4")
         run_dir = next(runs.iterdir())
@@ -194,9 +193,9 @@ class CommandTests(unittest.TestCase):
 
     def test_collect_can_fill_a_field_submission_left_unset(self):
         registry.register(DemoWeb, replace=True)
-        run("generate", "pii-packed", "-s", "4", "-o", str(self.out))
+        run("generate", "pii-detection", "-s", "4", "-o", str(self.out))
         runs = self.out / "runs"
-        run("submit", "demo:web", str(self.out / "pii-packed-000004"),
+        run("submit", "demo:web", str(self.out / "pii-detection-4"),
             "--runs-dir", str(runs), "--dataset-revision", "rev-4")
         run_dir = next(runs.iterdir())
         (run_dir / "output.pdf").write_bytes(b"%PDF-1.7\nx\n%%EOF\n")
@@ -205,18 +204,18 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(m["operator"], "late")
 
     def test_submit_without_an_adapter_lays_out_a_manual_run(self):
-        run("generate", "pii-packed", "-s", "3", "-o", str(self.out))
+        run("generate", "pii-detection", "-s", "3", "-o", str(self.out))
         runs = self.out / "runs"
-        code, out, err = run("submit", "ghost:api", str(self.out / "pii-packed-000003"),
+        code, out, err = run("submit", "ghost:api", str(self.out / "pii-detection-3"),
                              "--runs-dir", str(runs), "--dataset-revision", "rev-3")
         self.assertEqual(code, 0, err)
         self.assertIn("no adapter for 'ghost:api'", err)
         run_dir = next(runs.iterdir())
         self.assertTrue((run_dir / "screenshots").is_dir())
-        self.assertIn("pii-packed-000003.pdf", (run_dir / "TASK.md").read_text())
+        self.assertIn("pii-detection-3.pdf", (run_dir / "TASK.md").read_text())
 
         # collect needs no adapter either, and the run keeps the id it was given
-        (run_dir / "pii-packed-000003.pdf").write_bytes(b"%PDF-1.7\nx\n%%EOF\n")
+        (run_dir / "pii-detection-3.pdf").write_bytes(b"%PDF-1.7\nx\n%%EOF\n")
         code, _, err = run("collect", str(run_dir))
         self.assertEqual(code, 0, err)
         manifest = json.loads((run_dir / "manifest.json").read_text())
@@ -226,12 +225,12 @@ class CommandTests(unittest.TestCase):
         from pdfredeval.capabilities import Capabilities
         from pdfredeval.types import Case
         claimed = Capabilities.from_dict(manifest["capabilities"])
-        case = Case.from_dir(self.out / "pii-packed-000003")
+        case = Case.from_dir(self.out / "pii-detection-3")
         self.assertEqual([p.id for p in case.probes if not claimed.supports(p)], [])
 
     def test_submit_with_an_invalid_tool_id_is_a_clean_error(self):
-        run("generate", "pii-packed", "-s", "3", "-o", str(self.out))
-        code, _, err = run("submit", "ghost", str(self.out / "pii-packed-000003"),
+        run("generate", "pii-detection", "-s", "3", "-o", str(self.out))
+        code, _, err = run("submit", "ghost", str(self.out / "pii-detection-3"),
                            "--runs-dir", str(self.out / "runs"))
         self.assertEqual(code, 1)
         self.assertIn("vendor:surface", err)
@@ -240,11 +239,11 @@ class CommandTests(unittest.TestCase):
 
     def test_profile_can_come_from_a_file(self):
         registry.register(DemoWeb, replace=True)
-        run("generate", "pii-packed", "-s", "3", "-o", str(self.out))
+        run("generate", "pii-detection", "-s", "3", "-o", str(self.out))
         profile = self.out / "p.json"
         profile.write_text('{"mode": "strict"}')
         runs = self.out / "runs"
-        code, _, _ = run("submit", "demo:web", str(self.out / "pii-packed-000003"),
+        code, _, _ = run("submit", "demo:web", str(self.out / "pii-detection-3"),
                          "--runs-dir", str(runs), "--profile", f"@{profile}")
         self.assertEqual(code, 0)
         handle = json.loads((next(runs.iterdir()) / "handle.json").read_text())
@@ -257,8 +256,8 @@ class ScoreCommandTests(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
         self.out = Path(self._tmp.name)
-        run("generate", "redaction-layers", "-s", "5", "-o", str(self.out))
-        self.case_dir = self.out / "redaction-layers-000005"
+        run("generate", "pii-detection", "-s", "5", "-o", str(self.out))
+        self.case_dir = self.out / "pii-detection-5"
         self._saved = dict(registry._REGISTRY)
 
     def tearDown(self):
@@ -268,7 +267,7 @@ class ScoreCommandTests(unittest.TestCase):
 
     def test_scoring_a_pdf_against_its_case_needs_no_adapter(self):
         """The input scored against itself is the do-nothing tool: everything leaks."""
-        code, out, _ = run("score", str(self.case_dir / "redaction-layers-000005.pdf"),
+        code, out, _ = run("score", str(self.case_dir / "pii-detection-5.pdf"),
                            "--case-dir", str(self.case_dir), "--dpi", "100", "--no-ocr",
                            "--no-report")
         self.assertEqual(code, 0)
@@ -276,17 +275,17 @@ class ScoreCommandTests(unittest.TestCase):
         self.assertIn("alignment     fiducial", out)
 
     def test_it_writes_the_probe_table_and_the_report(self):
-        run("score", str(self.case_dir / "redaction-layers-000005.pdf"),
+        run("score", str(self.case_dir / "pii-detection-5.pdf"),
             "--case-dir", str(self.case_dir), "--dpi", "100", "--no-ocr",
             "--out", str(self.out / "score"), "--no-report")
         rows = (self.out / "score" / "probes.csv").read_text().splitlines()
         self.assertGreater(len(rows), 2, "one header and one row per probe")
         report = json.loads((self.out / "score" / "report.json").read_text())
         self.assertIn("thresholds", report)
-        self.assertEqual(report["case_id"], "redaction-layers-000005")
+        self.assertEqual(report["case_id"], "pii-detection-5")
 
     def test_json_prints_the_whole_report_and_writes_nothing(self):
-        code, out, _ = run("score", str(self.case_dir / "redaction-layers-000005.pdf"),
+        code, out, _ = run("score", str(self.case_dir / "pii-detection-5.pdf"),
                            "--case-dir", str(self.case_dir), "--dpi", "100",
                            "--no-ocr", "--json")
         self.assertEqual(code, 0)
@@ -295,7 +294,7 @@ class ScoreCommandTests(unittest.TestCase):
         self.assertFalse((self.case_dir / "score").exists())
 
     def test_no_report_stops_after_the_score_directory(self):
-        code, _, _ = run("score", str(self.case_dir / "redaction-layers-000005.pdf"),
+        code, _, _ = run("score", str(self.case_dir / "pii-detection-5.pdf"),
                          "--case-dir", str(self.case_dir), "--dpi", "100", "--no-ocr",
                          "--no-report")
         self.assertEqual(code, 0)
@@ -303,14 +302,14 @@ class ScoreCommandTests(unittest.TestCase):
         self.assertFalse((self.case_dir / "report").exists())
 
     def test_a_skipped_ocr_layer_is_reported_unavailable_not_clean(self):
-        code, _, err = run("score", str(self.case_dir / "redaction-layers-000005.pdf"),
+        code, _, err = run("score", str(self.case_dir / "pii-detection-5.pdf"),
                            "--case-dir", str(self.case_dir), "--dpi", "100", "--no-ocr",
                            "--no-report")
         self.assertEqual(code, 0)
         self.assertIn("ocr", err)
 
     def test_a_bare_pdf_without_a_case_is_a_clean_error(self):
-        code, _, err = run("score", str(self.case_dir / "redaction-layers-000005.pdf"))
+        code, _, err = run("score", str(self.case_dir / "pii-detection-5.pdf"))
         self.assertEqual(code, 1)
         self.assertIn("--case-dir", err)
         self.assertNotIn("Traceback", err)
@@ -328,8 +327,8 @@ class ScoreCommandTests(unittest.TestCase):
         runs = self.out / "runs"
         run("submit", "demo:web", str(self.case_dir), "--runs-dir", str(runs))
         run_dir = next(runs.iterdir())
-        output = run_dir / "redaction-layers-000005__demo-web.pdf"
-        shutil.copyfile(self.case_dir / "redaction-layers-000005.pdf", output)
+        output = run_dir / "pii-detection-5__demo-web.pdf"
+        shutil.copyfile(self.case_dir / "pii-detection-5.pdf", output)
         run("collect", str(run_dir))
 
         code, _, _ = run("score", str(run_dir), "--cases-dir", str(self.out),
@@ -350,9 +349,9 @@ class ScoreReportingTests(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
         self.out = Path(self._tmp.name)
-        run("generate", "redaction-layers", "-s", "8", "-o", str(self.out))
-        self.case_dir = self.out / "redaction-layers-000008"
-        self.pdf = str(self.case_dir / "redaction-layers-000008.pdf")
+        run("generate", "pii-detection", "-s", "8", "-o", str(self.out))
+        self.case_dir = self.out / "pii-detection-8"
+        self.pdf = str(self.case_dir / "pii-detection-8.pdf")
         self.common = ["--case-dir", str(self.case_dir), "--dpi", "100", "--no-ocr"]
 
     def tearDown(self):
