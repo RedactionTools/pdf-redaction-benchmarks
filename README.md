@@ -8,6 +8,9 @@
 
 **An evaluation framework for third-party PDF redaction tools**
 
+[![PyPI](https://img.shields.io/pypi/v/pdfredeval)](https://pypi.org/project/pdfredeval/)
+[![License](https://img.shields.io/pypi/l/pdfredeval)](https://github.com/RedactionTools/pdf-redaction-benchmarks/blob/main/LICENSE)
+
 [redaction-tools.com](https://redaction-tools.com) ·
 [github.com/RedactionTools/pdf-redaction-benchmarks](https://github.com/RedactionTools/pdf-redaction-benchmarks)
 

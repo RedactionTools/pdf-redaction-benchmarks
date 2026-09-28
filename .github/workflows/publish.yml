@@ -1,0 +1,68 @@
+# Publish to PyPI when a version tag is pushed: `git tag v0.1.2 && git push origin v0.1.2`.
+#
+# Trusted Publishing, so no token is stored anywhere: PyPI accepts an upload only from this
+# repository, this workflow file and the `pypi` environment. Register them once on PyPI
+# under the project's Publishing settings (or as a pending publisher before the first
+# release).
+name: Publish
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+
+      # A version is uploaded once and never again, so a tag that disagrees with
+      # pyproject.toml must stop here rather than publish the wrong number.
+      - name: Check the tag matches the package version
+        run: |
+          version="$(uv version --short)"
+          if [ "${GITHUB_REF_NAME}" != "v${version}" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match pyproject.toml version ${version}"
+            exit 1
+          fi
+
+      - name: Test
+        run: |
+          uv sync --locked
+          uv run pytest
+          uv run ruff check .
+          uv run mypy
+
+      - name: Build
+        run: uv build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  # Kept apart from the build so the job holding the publishing identity runs no
+  # project code at all - only the upload of what `build` produced.
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/pdfredeval/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Publish
+        run: uv publish --trusted-publishing always
