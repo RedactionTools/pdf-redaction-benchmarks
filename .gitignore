@@ -221,3 +221,6 @@ __marimo__/
 # belong to whoever collected them.
 cases/
 runs/
+
+# macOS Finder metadata
+.DS_Store
