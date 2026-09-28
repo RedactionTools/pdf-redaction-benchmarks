@@ -610,16 +610,54 @@ def cmd_publish(args: argparse.Namespace) -> int:
     if args.dry_run:
         for run in runs:
             overlay = "with overlay" if run.overlay else "no overlay (the site draws one)"
+            shots = 0 if args.no_screenshots else len(run.screenshots)
             print(f"{run.manifest.tool_id}  {run.manifest.dataset_revision}  "
-                  f"{run.manifest.run_id}  ({overlay})")
+                  f"{run.manifest.run_id}  ({overlay}, {_screenshots(shots)})")
         print(f"dry run: {len(runs)} run(s) would be published; nothing was sent")
         return 0
 
     client = client_for(args.site)
-    for submission_id, count in publish_runs(client, runs, suite=args.suite, notes=args.notes):
+    for submission_id, count in publish_runs(
+        client, runs, suite=args.suite, notes=args.notes, screenshots=not args.no_screenshots
+    ):
         print(f"submission {submission_id}: {count} run{'s' if count != 1 else ''} sent "
               "for scoring and review")
     print(f"follow them at {SUBMISSIONS_PAGE}")
+    return 0
+
+
+def _screenshots(count: int) -> str:
+    return f"{count} screenshot{'s' if count != 1 else ''}"
+
+
+def cmd_publish_screenshots(args: argparse.Namespace) -> int:
+    from .publish import client_for, load_screenshots
+
+    ws = _workspace(args)
+    targets = _expand_targets(args.target or [ws.runs_root])
+    # Read every run first, as publish does, so a broken one stops the batch before it
+    # starts rather than halfway through.
+    runs = [load_screenshots(Path(target)) for target in targets]
+    sending = [run for run in runs if run.screenshots]
+    for run in runs:
+        if not run.screenshots:
+            print(f"{run.run_id}: no screenshots, skipped")
+    if not sending:
+        raise BenchmarkError("nothing to send: none of these runs has screenshots in "
+                             "its screenshots/ folder")
+
+    if args.dry_run:
+        for run in sending:
+            print(f"{run.run_id}: {_screenshots(len(run.screenshots))} would be sent")
+        print(f"dry run: {len(sending)} run(s); nothing was sent")
+        return 0
+
+    client = client_for(args.site)
+    for run in sending:
+        held = client.add_screenshots(run.run_id, run.screenshots).get("screenshots") or []
+        # The site skips an image it already has, so this is what it holds, not what was
+        # new - which is what makes running this twice harmless.
+        print(f"{run.run_id}: {_screenshots(len(held))} on the site")
     return 0
 
 
@@ -799,7 +837,20 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--notes", default="", help="shown to the editor who reviews it")
     p.add_argument("--dry-run", action="store_true",
                    help="check the runs and list what would be sent; send nothing")
+    p.add_argument("--no-screenshots", action="store_true",
+                   help="keep each run's screenshots/ on this machine")
     p.set_defaults(func=cmd_publish)
+
+    p = sub.add_parser(
+        "publish-screenshots", parents=[tree, site],
+        help="add runs' screenshots to results already on the site, without republishing",
+    )
+    p.add_argument("target", type=Path, nargs="*",
+                   help="run directories or a parent holding several "
+                        "(default: every run of this version)")
+    p.add_argument("--dry-run", action="store_true",
+                   help="list what would be sent; send nothing")
+    p.set_defaults(func=cmd_publish_screenshots)
 
     p = sub.add_parser(
         "publish-cases", parents=[tree, site],

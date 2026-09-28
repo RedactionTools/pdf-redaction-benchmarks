@@ -33,14 +33,25 @@ class Recorded:
         self.fail_with: tuple[int, dict] | None = None
 
 
-def _parse_multipart(content_type: str, body: bytes) -> dict[str, tuple[str | None, bytes]]:
+class Parts(dict):
+    """A multipart body by field name - the first part of each - with `every` holding all
+    of them, for a field sent more than once."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.every: dict[str, list[tuple[str | None, bytes]]] = {}
+
+
+def _parse_multipart(content_type: str, body: bytes) -> Parts:
     message = BytesParser(policy=HTTP).parsebytes(
         f"Content-Type: {content_type}\r\n\r\n".encode() + body
     )
-    parts = {}
+    parts = Parts()
     for part in message.iter_parts():
         name = part.get_param("name", header="content-disposition")
-        parts[name] = (part.get_filename(), part.get_payload(decode=True))
+        value = (part.get_filename(), part.get_payload(decode=True))
+        parts.setdefault(name, value)
+        parts.every.setdefault(name, []).append(value)
     return parts
 
 
@@ -74,6 +85,9 @@ def _serve(recorded: Recorded) -> ThreadingHTTPServer:
                 self._reply(201, {"id": "sub-1", "status": "draft"})
             elif self.path.endswith("/finalize"):
                 self._reply(200, {"id": "sub-1", "status": "scoring"})
+            elif self.path.endswith("/screenshots"):
+                sent = len(body.every.get("screenshots", []))
+                self._reply(201, {"run_id": RUN_ID, "screenshots": [{}] * sent})
             else:
                 self._reply(201, {"run_id": RUN_ID})
 
@@ -91,7 +105,9 @@ def run(*argv: str, env: dict[str, str] | None = None) -> tuple[int, str, str]:
     return code, out.getvalue(), err.getvalue()
 
 
-def _scored_run(root: Path, *, scored: bool = True, overlay: bool = True) -> Path:
+def _scored_run(
+    root: Path, *, scored: bool = True, overlay: bool = True, screenshots: int = 0
+) -> Path:
     run_dir = root / "runs" / "acme-web" / RUN_ID
     run_dir.mkdir(parents=True)
     manifest = {
@@ -112,6 +128,13 @@ def _scored_run(root: Path, *, scored: bool = True, overlay: bool = True) -> Pat
     if overlay:
         (run_dir / "report" / "overlay").mkdir(parents=True)
         (run_dir / "report" / "overlay" / f"{RUN_ID}-overlay.png").write_bytes(b"\x89PNG")
+    shots = run_dir / "screenshots"
+    shots.mkdir()
+    (shots / ".DS_Store").write_bytes(b"finder")  # must never be sent
+    for index in range(screenshots):
+        (shots / f"Screenshot 2026-09-25 at 10.1{index}.00.png").write_bytes(
+            b"\x89PNG shot %d" % index
+        )
     return run_dir
 
 
@@ -177,6 +200,31 @@ class PublishTests(unittest.TestCase):
         _, _, _, parts = self.recorded.requests[1]
         self.assertNotIn("overlay", parts)
 
+    def test_sends_the_runs_screenshots_in_the_order_they_were_taken(self):
+        run("publish", str(_scored_run(self.tmp, screenshots=2)), env=self.env)
+
+        _, _, _, parts = self.recorded.requests[1]
+        self.assertEqual(
+            [data for _, data in parts.every["screenshots"]],
+            [b"\x89PNG shot 0", b"\x89PNG shot 1"],
+        )
+        self.assertNotIn(b"finder", b"".join(data for _, data in parts.every["screenshots"]))
+
+    def test_no_screenshots_keeps_them_on_this_machine(self):
+        run_dir = _scored_run(self.tmp, screenshots=2)
+
+        run("publish", str(run_dir), "--no-screenshots", env=self.env)
+
+        _, _, _, parts = self.recorded.requests[1]
+        self.assertNotIn("screenshots", parts)
+
+    def test_a_dry_run_counts_the_screenshots_it_would_send(self):
+        _, out, _ = run(
+            "publish", str(_scored_run(self.tmp, screenshots=2)), "--dry-run", env=self.env
+        )
+
+        self.assertIn("2 screenshots", out)
+
     def test_an_unscored_run_is_refused_before_anything_is_sent(self):
         code, _, err = run("publish", str(_scored_run(self.tmp, scored=False)), env=self.env)
 
@@ -206,6 +254,69 @@ class PublishTests(unittest.TestCase):
 
         self.assertEqual(code, 1)
         self.assertIn("no published tool 'acme'", err)
+
+
+class PublishScreenshotsTests(unittest.TestCase):
+    """Adding screenshots to runs the site already has - without publishing them again."""
+
+    def setUp(self) -> None:
+        self.recorded = Recorded()
+        self.server = _serve(self.recorded)
+        self.tmp = Path(tempfile.mkdtemp())
+        self.env = {"PDFREDEVAL_API_KEY": "Ab12Cd34.secret",
+                    "PDFREDEVAL_SITE": f"http://127.0.0.1:{self.server.server_address[1]}",
+                    "PDFREDEVAL_CONFIG_DIR": tempfile.mkdtemp()}
+
+    def tearDown(self) -> None:
+        self.server.shutdown()
+
+    def test_sends_each_runs_screenshots_to_that_run(self):
+        run_dir = _scored_run(self.tmp, screenshots=2)
+
+        code, out, err = run("publish-screenshots", str(run_dir), env=self.env)
+
+        self.assertEqual(code, 0, err)
+        ((method, path, headers, parts),) = self.recorded.requests
+        self.assertEqual(path, f"/api/v1/benchmarks/runs/{RUN_ID}/screenshots")
+        self.assertEqual(headers["x-api-key"], "Ab12Cd34.secret")
+        self.assertEqual(set(parts), {"screenshots"})
+        self.assertEqual(len(parts.every["screenshots"]), 2)
+        self.assertIn(f"{RUN_ID}: 2 screenshots", out)
+
+    def test_needs_no_score_only_the_manifest(self):
+        code, _, err = run(
+            "publish-screenshots", str(_scored_run(self.tmp, scored=False, screenshots=1)),
+            env=self.env,
+        )
+
+        self.assertEqual(code, 0, err)
+
+    def test_a_run_with_no_screenshots_is_skipped_and_said_so(self):
+        code, out, err = run("publish-screenshots", str(_scored_run(self.tmp)), env=self.env)
+
+        self.assertEqual(code, 1)
+        self.assertIn("no screenshots", out + err)
+        self.assertEqual(self.recorded.requests, [])
+
+    def test_a_dry_run_sends_nothing(self):
+        code, out, _ = run(
+            "publish-screenshots", str(_scored_run(self.tmp, screenshots=3)), "--dry-run",
+            env=self.env,
+        )
+
+        self.assertEqual(code, 0)
+        self.assertIn("3 screenshots", out)
+        self.assertEqual(self.recorded.requests, [])
+
+    def test_the_sites_refusal_is_shown_verbatim(self):
+        self.recorded.fail_with = (404, {"detail": f"No run of yours with the id '{RUN_ID}'."})
+
+        code, _, err = run(
+            "publish-screenshots", str(_scored_run(self.tmp, screenshots=1)), env=self.env
+        )
+
+        self.assertEqual(code, 1)
+        self.assertIn("No run of yours", err)
 
 
 class PublishCasesTests(unittest.TestCase):

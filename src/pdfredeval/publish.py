@@ -5,10 +5,15 @@ only (urllib, a hand-rolled multipart body), so publishing works from the same b
 environment `generate` does.
 
 What leaves the machine is exactly what the site needs to show a result and nothing it
-must not see: per run, `manifest.json`, `score/report.json`, the delivered PDF and the
-overlay if one was drawn. Never `ground_truth.json` (its seed regenerates the case),
-never `probes.csv`, screenshots or `entities.json`. Cases, with their ground truth, go
-only through `publish-cases`, which the site accepts from staff keys alone.
+must not see: per run, `manifest.json`, `score/report.json`, the delivered PDF, the
+overlay if one was drawn, and the images in `screenshots/` - the evidence of how the
+tool was driven, shown beside the result (`--no-screenshots` keeps them here). Never
+`ground_truth.json` (its seed regenerates the case), never `probes.csv` or
+`entities.json`. Cases, with their ground truth, go only through `publish-cases`, which
+the site accepts from staff keys alone.
+
+`publish-screenshots` sends a run's screenshots on their own, to a run the site already
+has: they are evidence, not score, so adding them never reopens a reviewed result.
 
 The site rescores every published PDF with its own copy of this scorer and badges the
 result `verified` or `disputed`, so a report is a claim the site checks, not one it
@@ -43,6 +48,10 @@ TIMEOUT_SECONDS = 120
 USER_AGENT = f"pdfredeval/{__version__} (+https://github.com/RedactionTools/pdf-redaction-benchmarks)"
 
 
+#: One file in a form body: `(filename, bytes)`.
+FilePart = tuple[str, bytes]
+
+
 class PublishError(BenchmarkError):
     """The site refused, or could not be reached. The message is the site's own."""
 
@@ -54,6 +63,7 @@ class PublishableRun:
     report: Path
     pdf: Path
     overlay: Path | None
+    screenshots: tuple[Path, ...] = ()
 
     @property
     def group(self) -> tuple[str, str]:
@@ -81,7 +91,42 @@ def load_run(run_dir: Path) -> PublishableRun:
     pdf = output_pdf_path(run_dir, manifest.case_id, manifest.tool_id, manifest.output_name)
     if not pdf.exists():
         raise BenchmarkError(f"{run_dir}: the delivered PDF {pdf.name} is missing")
-    return PublishableRun(run_dir, manifest, report, pdf, find_overlay(run_dir, manifest))
+    overlay = find_overlay(run_dir, manifest)
+    return PublishableRun(run_dir, manifest, report, pdf, overlay, find_screenshots(run_dir))
+
+
+#: What the site accepts as a screenshot. Anything else in `screenshots/` - a Finder
+#: `.DS_Store`, a screen recording - stays on this machine.
+SCREENSHOT_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".webp"})
+
+
+def find_screenshots(run_dir: Path) -> tuple[Path, ...]:
+    """The images in `run_dir/screenshots/`, by name - which for a capture tool's
+    timestamped names is the order they were taken in."""
+    folder = run_dir / "screenshots"
+    if not folder.is_dir():
+        return ()
+    return tuple(sorted(
+        path for path in folder.iterdir()
+        if path.is_file() and not path.name.startswith(".")
+        and path.suffix.lower() in SCREENSHOT_SUFFIXES
+    ))
+
+
+@dataclass(frozen=True, slots=True)
+class RunScreenshots:
+    run_id: str
+    screenshots: tuple[Path, ...]
+
+
+def load_screenshots(run_dir: Path) -> RunScreenshots:
+    """A run's screenshots and the id the site knows it by. Only the manifest is needed:
+    the run is already published, so nothing about its score is sent again."""
+    manifest_path = run_dir / "manifest.json"
+    if not manifest_path.exists():
+        raise BenchmarkError(f"{run_dir} has no manifest.json, so there is no run id to "
+                             "attach its screenshots to")
+    return RunScreenshots(RunManifest.load(manifest_path).run_id, find_screenshots(run_dir))
 
 
 def find_overlay(run_dir: Path, manifest: RunManifest) -> Path | None:
@@ -108,15 +153,24 @@ class SiteClient:
     def open_submission(self, suite: str, body: dict[str, Any]) -> dict[str, Any]:
         return self._post(f"/suites/{suite}/submissions", json_body=body)
 
-    def publish_run(self, submission_id: str, run: PublishableRun) -> dict[str, Any]:
-        files = {
+    def publish_run(
+        self, submission_id: str, run: PublishableRun, *, screenshots: bool = True
+    ) -> dict[str, Any]:
+        files: dict[str, FilePart | list[FilePart]] = {
             "manifest": ("manifest.json", json.dumps(run.manifest.to_dict()).encode()),
             "report": ("report.json", run.report.read_bytes()),
             "pdf": (run.pdf.name, run.pdf.read_bytes()),
         }
         if run.overlay:
             files["overlay"] = (run.overlay.name, run.overlay.read_bytes())
+        if screenshots and run.screenshots:
+            files["screenshots"] = _file_parts(run.screenshots)
         return self._post(f"/submissions/{submission_id}/runs", files=files)
+
+    def add_screenshots(self, run_id: str, screenshots: Sequence[Path]) -> dict[str, Any]:
+        return self._post(
+            f"/runs/{run_id}/screenshots", files={"screenshots": _file_parts(screenshots)}
+        )
 
     def finalize(self, submission_id: str) -> dict[str, Any]:
         return self._post(f"/submissions/{submission_id}/finalize")
@@ -140,7 +194,7 @@ class SiteClient:
         *,
         json_body: dict[str, Any] | None = None,
         fields: dict[str, str] | None = None,
-        files: dict[str, tuple[str, bytes]] | None = None,
+        files: dict[str, FilePart | list[FilePart]] | None = None,
     ) -> dict[str, Any]:
         return post(self.base + path, api_key=self.api_key, json_body=json_body,
                     fields=fields, files=files)
@@ -152,7 +206,7 @@ def post(
     api_key: str | None = None,
     json_body: dict[str, Any] | None = None,
     fields: dict[str, str] | None = None,
-    files: dict[str, tuple[str, bytes]] | None = None,
+    files: dict[str, FilePart | list[FilePart]] | None = None,
 ) -> dict[str, Any]:
     """POST to the site and return its JSON (or `{}` for an empty reply)."""
     headers = {"Accept": "application/json", "User-Agent": USER_AGENT}
@@ -228,9 +282,15 @@ def _refusal(exc: urllib.error.HTTPError) -> str:
     return f"the site refused ({exc.code}): {detail or exc.reason}"
 
 
+def _file_parts(paths: Sequence[Path]) -> list[FilePart]:
+    return [(path.name, path.read_bytes()) for path in paths]
+
+
 def _multipart(
-    fields: dict[str, str], files: dict[str, tuple[str, bytes]]
+    fields: dict[str, str], files: dict[str, FilePart | list[FilePart]]
 ) -> tuple[bytes, str]:
+    """A form body; a field given a list is sent once per file, as a browser sends a
+    multiple-file input."""
     boundary = f"pdfredeval-{uuid.uuid4().hex}"
     chunks: list[bytes] = []
     for name, value in fields.items():
@@ -238,7 +298,14 @@ def _multipart(
             f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n'.encode()
             + value.encode() + b"\r\n"
         )
-    for name, (filename, content) in files.items():
+    parts = [
+        (name, part)
+        for name, value in files.items()
+        for part in (value if isinstance(value, list) else [value])
+    ]
+    for name, (filename, content) in parts:
+        # A header value cannot carry a quote or a line break; a capture tool's name can.
+        filename = filename.replace('"', "'").replace("\r", " ").replace("\n", " ")
         chunks.append(
             f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"; '
             f'filename="{filename}"\r\nContent-Type: application/octet-stream\r\n\r\n'.encode()
@@ -275,6 +342,7 @@ def publish_runs(
     *,
     suite: str = "pdf",
     notes: str = "",
+    screenshots: bool = True,
 ) -> list[tuple[str, int]]:
     """One submission per (tool, revision), every run in it, then send it for review.
 
@@ -298,7 +366,7 @@ def publish_runs(
             "notes": notes,
         })
         for run in members:
-            client.publish_run(submission["id"], run)
+            client.publish_run(submission["id"], run, screenshots=screenshots)
         client.finalize(submission["id"])
         sent.append((submission["id"], len(members)))
     return sent

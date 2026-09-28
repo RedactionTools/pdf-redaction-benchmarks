@@ -76,7 +76,7 @@ benchmarks/v<version>/runs/<vendor-surface>/
     manifest.json     # the table above; `output_name` names the file below
     TASK.md           # manual path only: instructions for the operator
     <any name>.pdf    # the tool's output, exactly as downloaded, never re-saved
-    screenshots/      # optional: settings UI, warnings
+    screenshots/      # optional: settings UI, warnings - published with the run
     score/            # generated: probe rows, leak report
     report/           # generated: report.md and the self-contained report.html
 ```

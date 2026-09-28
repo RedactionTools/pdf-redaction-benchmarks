@@ -127,7 +127,8 @@ rates are never averaged.
 | `collect` | collect a delivered run and write its manifest |
 | `score` | align, probe and score a run — or any PDF against its case — then report on it |
 | `login` / `logout` | sign this machine in to redaction-tools.com in the browser, or revoke its key |
-| `publish` | send scored runs to [redaction-tools.com](https://redaction-tools.com/benchmarks) for rescoring and review |
+| `publish` | send scored runs, with their screenshots, to [redaction-tools.com](https://redaction-tools.com/benchmarks) for rescoring and review |
+| `publish-screenshots` | add runs' `screenshots/` to results already on the site, without republishing them |
 | `publish-cases` | send cases and their ground truth to the site (staff keys only) |
 
 ### Publishing
@@ -139,6 +140,7 @@ approve the code your terminal shows:
 uv run pdfredeval login                         # --no-browser over SSH: prints the link
 uv run pdfredeval publish <run_dir> --dry-run   # check, list, send nothing
 uv run pdfredeval publish <run_dir> --notes "Pro plan, default settings"
+uv run pdfredeval publish-screenshots <run_dir>  # screenshots for a run already published
 uv run pdfredeval logout                        # revokes this machine's key
 ```
 

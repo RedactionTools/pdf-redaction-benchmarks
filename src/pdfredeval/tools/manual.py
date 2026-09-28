@@ -43,6 +43,8 @@ Attempt: {attempt}
 4. Record anything the UI did that the file cannot show - warnings, forced OCR, a
    silently dropped page - under Notes.
 5. Screenshots of the settings screen go in `screenshots/` (optional, encouraged).
+   `publish` sends them with the run, and they are shown on its page: capture the
+   tool's window, not your whole desktop.
 
 ## Notes
 
